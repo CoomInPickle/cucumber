@@ -31,7 +31,7 @@ async def change_status():
 
 @client.event
 async def on_ready():
-    print(f"{timestamp} Bot is connected to Discord")
+    print(f"{timestamp} Cucumber is connected to Discord")
     change_status.start()
 
 @client.command(name="sync")
@@ -41,7 +41,7 @@ async def sync(ctx):
 
 async def load():
     for filename in os.listdir("./cogs"):
-        if filename.endswith("py"):
+        if filename.endswith(".py"):
             await client.load_extension(f"cogs.{filename[:-3]}")
 
 async def main():
