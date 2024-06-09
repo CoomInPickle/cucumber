@@ -132,5 +132,44 @@ class Music(commands.Cog):
         else:
             print(f"{timestamp} Queue is empty, no song to play next")
 
+    @app_commands.command(name="pause", description="Pause the currently playing song")
+    async def pause(self, interaction: discord.Interaction):
+        voice_client = interaction.guild.voice_client
+
+        if voice_client is None or not voice_client.is_playing():
+            await interaction.response.send_message("There is no song currently playing.", ephemeral=True)
+            return
+
+        voice_client.pause()
+        await interaction.response.send_message("Paused the currently playing song.", ephemeral=True)
+
+    @app_commands.command(name="resume", description="Resume the currently paused song")
+    async def resume(self, interaction: discord.Interaction):
+        voice_client = interaction.guild.voice_client
+
+        if voice_client is None or not voice_client.is_paused():
+            await interaction.response.send_message("There is no song currently paused.", ephemeral=True)
+            return
+
+        voice_client.resume()
+        await interaction.response.send_message("Resumed the currently paused song.", ephemeral=True)
+
+    @app_commands.command(name="skip", description="Skip the currently playing song")
+    async def skip(self, interaction: discord.Interaction):
+        voice_client = interaction.guild.voice_client
+
+        if voice_client is None or not voice_client.is_playing():
+            await interaction.response.send_message("There is no song currently playing to skip.", ephemeral=True)
+            return
+
+        if self.queue:
+            next_song = self.queue[0]
+            voice_client.stop()
+            await interaction.response.send_message(f"Now playing: {next_song.title}", ephemeral=True)
+        else:
+            voice_client.stop()
+            await interaction.response.send_message("There are no more songs in the queue.", ephemeral=True)
+
+
 async def setup(client):
     await client.add_cog(Music(client))
