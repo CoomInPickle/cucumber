@@ -56,6 +56,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 class Music(commands.Cog):
     def __init__(self, client: commands.Bot):
         self.client = client
+        self.queue = []  # Initialize an empty queue
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -107,18 +108,29 @@ class Music(commands.Cog):
         try:
             await interaction.response.defer(ephemeral=True)
             player = await YTDLSource.from_url(url, loop=self.client.loop, stream=True)
-            voice_client.play(player, after=lambda e: print(f'{timestamp} Player error: {e}') if e else None)
-            print(f'{timestamp} Now playing: {player.title}')
-
-            # Wait until the voice client starts playing
-            while not voice_client.is_playing():
-                await asyncio.sleep(1)
-
-            # Voice client started playing, send follow-up message
-            await interaction.followup.send(f"Now playing: {player.title}", ephemeral=True)
+            print(f"{player.title} found")
+            if voice_client.is_playing() or self.queue:
+                self.queue.append(player)
+                print(f"{timestamp} song added to queue")
+                await interaction.followup.send(f"Added {player.title} to the queue.", ephemeral=True)
+            else:
+                self.queue.append(player)  # Add song to queue
+                await self.play_next(voice_client, interaction)  # Start playing
         except Exception as e:
             await interaction.response.send_message(f'An error occurred: {str(e)}', ephemeral=True)
 
+    async def play_next(self, voice_client, interaction=None):
+        if self.queue:
+            player = self.queue.pop(0)
+            voice_client.play(player, after=lambda e: self.client.loop.create_task(
+                self.play_next(voice_client)) if not e else print(f'{timestamp} Player error: {e}'))
+            print(f'{timestamp} Now playing next song in queue: {player.title}')
+            while not voice_client.is_playing():
+                await asyncio.sleep(1)
+            if interaction:
+                await interaction.followup.send(f"Now playing: {player.title}", ephemeral=True)
+        else:
+            print(f"{timestamp} Queue is empty, no song to play next")
 
 async def setup(client):
     await client.add_cog(Music(client))
