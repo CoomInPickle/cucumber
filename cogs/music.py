@@ -1,6 +1,6 @@
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 import datetime
 import yt_dlp
 import asyncio
@@ -13,6 +13,7 @@ timestamp = datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")  # Timestamp
 # FFmpeg options
 ffmpeg_options = {
     'options': '-vn',
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
 }
 
 # YTDL options
@@ -24,7 +25,7 @@ ytdl_format_options = {
     'nocheckcertificate': True,
     'ignoreerrors': False,
     'logtostderr': False,
-    'quiet': True,
+    'quiet': True,  # Add this line to suppress most logs
     'no_warnings': True,
     'default_search': 'auto',
     'source_address': '0.0.0.0',  # Bind to ipv4 since ipv6 addresses cause issues sometimes
@@ -60,13 +61,27 @@ class Music(commands.Cog):
     async def on_ready(self):
         print(f"{timestamp} music cog loaded")
 
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+        # Only process if the bot is in a voice channel
+        voice_client = member.guild.voice_client
+        if voice_client and voice_client.channel:
+            # Check if the bot is alone in the voice channel
+            if len(voice_client.channel.members) == 1:
+                await asyncio.sleep(60)
+                if len(voice_client.channel.members) == 1:
+                    await self.cleanup(voice_client)
+    async def cleanup(self, voice_client):
+        await voice_client.disconnect()
+        print(f"{timestamp} Disconnected from {voice_client.channel.name} due to inactivity.")
+
+
     @app_commands.command(name="join", description="Test join vc")
     async def join(self, interaction: discord.Interaction):
         voice_state = interaction.user.voice
         if voice_state is None or voice_state.channel is None:
             await interaction.response.send_message("You are not connected to a voice channel.", ephemeral=True)
             return
-
         channel = voice_state.channel
         if interaction.guild.voice_client is not None:
             await interaction.guild.voice_client.move_to(channel)
@@ -92,8 +107,8 @@ class Music(commands.Cog):
         try:
             await interaction.response.defer(ephemeral=True)
             player = await YTDLSource.from_url(url, loop=self.client.loop, stream=True)
-            voice_client.play(player, after=lambda e: print(f'Player error: {e}') if e else None)
-            print(f'Now playing: {player.title}')
+            voice_client.play(player, after=lambda e: print(f'{timestamp} Player error: {e}') if e else None)
+            print(f'{timestamp} Now playing: {player.title}')
 
             # Wait until the voice client starts playing
             while not voice_client.is_playing():
