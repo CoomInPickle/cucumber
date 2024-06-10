@@ -1,6 +1,6 @@
 import discord
 from discord import app_commands
-from discord.ext import commands, tasks
+from discord.ext import commands
 import datetime
 import yt_dlp
 import asyncio
@@ -31,6 +31,7 @@ ytdl_format_options = {
     'source_address': '0.0.0.0',  # Bind to ipv4 since ipv6 addresses cause issues sometimes
 }
 
+
 class YTDLSource(discord.PCMVolumeTransformer):
     def __init__(self, source, *, data, volume=0.5):
         super().__init__(source, volume)
@@ -38,6 +39,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
         self.title = data.get('title')
         self.url = data.get('url')
+        self.thumbnail = data.get('thumbnail')
 
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
@@ -53,10 +55,32 @@ class YTDLSource(discord.PCMVolumeTransformer):
         return cls(discord.FFmpegPCMAudio(filename, **ffmpeg_options), data=data)
 
 
+class MusicView(discord.ui.View):
+    def __init__(self, client, cog, embed_message=None):
+        super().__init__(timeout=None)
+        self.client = client
+        self.cog = cog
+        self.embed_message = embed_message
+
+    @discord.ui.button(label="Pause", style=discord.ButtonStyle.primary, custom_id="pause_button")
+    async def pause_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.cog.pause(interaction)
+
+    @discord.ui.button(label="Resume", style=discord.ButtonStyle.success, custom_id="resume_button")
+    async def resume_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.cog.resume(interaction)
+
+    @discord.ui.button(label="Skip", style=discord.ButtonStyle.danger, custom_id="skip_button")
+    async def skip_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.cog.skip(interaction)
+
+
 class Music(commands.Cog):
     def __init__(self, client: commands.Bot):
         self.client = client
-        self.queue = []  # Initialize an empty queue
+        self.queue = []
+        self.current_embed_message = None
+        self.text_channels = {}  # Dictionary to track text channels for each guild
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -72,10 +96,33 @@ class Music(commands.Cog):
                 await asyncio.sleep(60)
                 if len(voice_client.channel.members) == 1:
                     await self.cleanup(voice_client)
+
     async def cleanup(self, voice_client):
         await voice_client.disconnect()
         print(f"{timestamp} Disconnected from {voice_client.channel.name} due to inactivity.")
 
+    async def create_player_embed(self, interaction, player):
+        print("create_player_embed_called")
+        embed = discord.Embed(title="Now Playing", description=player.title, color=discord.Color.blue())
+        embed.set_thumbnail(url=player.thumbnail)
+        view = MusicView(self.client, self.current_embed_message)
+        self.current_embed_message = await interaction.followup.send(embed=embed, view=view)
+        print("followup embed sent")
+
+    async def update_player_embed(self, guild_id, player):
+        print("update_player_embed_called")
+        embed = discord.Embed(title="Now Playing", description=player.title, color=discord.Color.blue())
+        embed.set_thumbnail(url=player.thumbnail)
+        view = MusicView(self.client, self.current_embed_message)
+
+        if self.current_embed_message:
+            print("deleting current embed message")
+            await self.current_embed_message.delete()
+
+        channel = self.text_channels.get(guild_id)
+        if channel:
+            self.current_embed_message = await channel.send(embed=embed, view=view)
+            print("new embed sent")
 
     @app_commands.command(name="join", description="Test join vc")
     async def join(self, interaction: discord.Interaction):
@@ -105,32 +152,44 @@ class Music(commands.Cog):
         elif voice_client.channel != voice_state.channel:
             await voice_client.move_to(voice_state.channel)
 
+        self.text_channels[interaction.guild_id] = interaction.channel  # Track the text channel
+
         try:
-            await interaction.response.defer(ephemeral=True)
+            print("fetching song")
+            await interaction.response.defer(ephemeral=False)  # Defer here
             player = await YTDLSource.from_url(url, loop=self.client.loop, stream=True)
             print(f"{player.title} found")
             if voice_client.is_playing() or self.queue:
+                print("trying to queue")
                 self.queue.append(player)
-                print(f"{timestamp} song added to queue")
-                await interaction.followup.send(f"Added {player.title} to the queue.", ephemeral=True)
+                print("song added to queue")
+                await interaction.followup.send(f"Added {player.title} to the queue.", ephemeral=False)
             else:
-                self.queue.append(player)  # Add song to queue
-                await self.play_next(voice_client, interaction)  # Start playing
+                voice_client.play(player, after=lambda e: self.client.loop.create_task(self.play_next(voice_client)))
+                print(f'{timestamp} Now playing: {player.title}')
+                await self.create_player_embed(interaction, player)
         except Exception as e:
-            await interaction.response.send_message(f'An error occurred: {str(e)}', ephemeral=True)
+            await interaction.followup.send(f'An error occurred: {str(e)}', ephemeral=False)
 
-    async def play_next(self, voice_client, interaction=None):
+    async def play_next(self, voice_client):
         if self.queue:
+            # If there are songs in the queue, play the next one
             player = self.queue.pop(0)
             voice_client.play(player, after=lambda e: self.client.loop.create_task(
-                self.play_next(voice_client)) if not e else print(f'{timestamp} Player error: {e}'))
+                self.play_next(voice_client)) if e is None else print(f'{timestamp} Player error: {e}'))
             print(f'{timestamp} Now playing next song in queue: {player.title}')
-            while not voice_client.is_playing():
-                await asyncio.sleep(1)
-            if interaction:
-                await interaction.followup.send(f"Now playing: {player.title}", ephemeral=True)
+            await self.update_player_embed(voice_client.guild.id, player)
         else:
-            print(f"{timestamp} Queue is empty, no song to play next")
+            # If the queue is empty, wait for 5 minutes before disconnecting
+            print(f"{timestamp} Queue is empty. Bot will remain in the voice channel for 5 minutes.")
+            if self.current_embed_message:
+                await self.current_embed_message.delete()
+                self.current_embed_message = None
+            await asyncio.sleep(300)  # 300 seconds = 5 minutes
+            # Check if the queue is still empty after 5 minutes
+            if not self.queue:
+                print(f"{timestamp} Bot has been idle for 5 minutes. Disconnecting from voice channel.")
+                await voice_client.disconnect()
 
     @app_commands.command(name="pause", description="Pause the currently playing song")
     async def pause(self, interaction: discord.Interaction):
@@ -141,7 +200,7 @@ class Music(commands.Cog):
             return
 
         voice_client.pause()
-        await interaction.response.send_message("Paused the currently playing song.", ephemeral=True)
+        await interaction.response.send_message("Paused the currently playing song.", ephemeral=False)
 
     @app_commands.command(name="resume", description="Resume the currently paused song")
     async def resume(self, interaction: discord.Interaction):
@@ -152,7 +211,7 @@ class Music(commands.Cog):
             return
 
         voice_client.resume()
-        await interaction.response.send_message("Resumed the currently paused song.", ephemeral=True)
+        await interaction.response.send_message("Resumed the currently paused song.", ephemeral=False)
 
     @app_commands.command(name="skip", description="Skip the currently playing song")
     async def skip(self, interaction: discord.Interaction):
@@ -165,10 +224,13 @@ class Music(commands.Cog):
         if self.queue:
             next_song = self.queue[0]
             voice_client.stop()
-            await interaction.response.send_message(f"Now playing: {next_song.title}", ephemeral=True)
+            await self.create_player_embed(interaction, next_song)
         else:
             voice_client.stop()
-            await interaction.response.send_message("There are no more songs in the queue.", ephemeral=True)
+            await interaction.channel.send("There are no more songs in the queue.")  # Send directly to the channel
+            if self.current_embed_message:
+                await self.current_embed_message.delete()
+                self.current_embed_message = None
 
 
 async def setup(client):
