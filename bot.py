@@ -3,23 +3,19 @@ from discord.ext import commands, tasks
 from itertools import cycle
 import os
 import asyncio
-import environ
 import datetime
 import Joking
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
 # Variables
-timestamp = datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")  # Timestamp for logs
-
-# Read .env file
-env = environ.Env()
-env.read_env()
+timestamp = datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")  # Timestamp for log
 
 # Bot Setup
-BOT_TOKEN = env('BOT_TOKEN')
-APPLICATION_ID = env("APPLICATION_ID")
+BOT_TOKEN = os.getenv('BOT_TOKEN')
+APPLICATION_ID = os.getenv('APPLICATION_ID')
 client = commands.Bot(command_prefix="!", intents=discord.Intents.all(), application_id=APPLICATION_ID)
-
-
 
 
 bot_status = cycle(["Pickle","Pa"])
