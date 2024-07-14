@@ -182,6 +182,18 @@ class Music(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f'An error occurred: {str(e)}', ephemeral=True)
 
+    @app_commands.command(name="leave", description="Leave the voice channel and clean up")
+    async def leave(self, interaction: discord.Interaction):
+        voice_client = interaction.guild.voice_client
+
+        if voice_client is None:
+            await interaction.response.send_message("I'm not connected to a voice channel.", ephemeral=True)
+            return
+
+        await self.cleanup(voice_client)
+        await interaction.response.send_message("Left the voice channel and cleaned up.", ephemeral=True)
+
+
     async def play_next(self, voice_client):
         if self.queue:
             player = self.queue.pop(0)
