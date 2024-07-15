@@ -1,0 +1,9 @@
+version: '3.8'
+services:
+  cucumber-bot:
+    image: coominpickle/cucumber:latest
+    container_name: cucumber-discord-bot
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}			    #Bot token from dev portal
+      - APPLICATION_ID=${APPLICATION_ID}	#Application ID	from dev portal
+    restart: unless-stopped

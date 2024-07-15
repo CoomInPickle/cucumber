@@ -6,26 +6,40 @@
 ![Issues](https://img.shields.io/github/issues/CoomInPickle/cucumber)
 ## Overview
 
-Cucumber is a personal Discord bot wich i want to use for all kind of things like music since there is no good one wich is reliable.
-Also im gonna use it for other helpful stuff but il decide on that later
+Cucumber is a personal Discord bot witch I want to use for all kind of things like music since there is no good one which is reliable.
+Also, im going to use it for other helpful stuff but il decide on that later
+
+## Installation using Docker Compose
+The docker container is tested on ubuntu, I cant guarantee it works on anything else.
+```yaml
+version: '3.8'
+services:
+  cucumber-bot:
+    image: coominpickle/cucumber:latest
+    container_name: cucumber-discord-bot
+    environment:
+      - BOT_TOKEN=${BOT_TOKEN}			    #Bot token from dev portal
+      - APPLICATION_ID=${APPLICATION_ID}	#Application ID	from dev portal
+    restart: unless-stopped
+```
 ## To-Do List
 
 - [x] Add music playback feature
 - [ ] ~~Create dynamic /help command~~ (help is already in the discord /menu)
-- [ ] /queue command to list quque or clear and maybe more
+- [ ] /queue command to list queue or clear and maybe more
 - [ ] Docker compose deployable
-- [ ] !update command wich will make the but pull new files from github
-- [ ] Adjustable music quality trought .env
+- [ ] !update command witch will make the but pull new files from GitHub
+- [ ] Adjustable music quality
 - [ ] function to make a dedicated "console chat" for the bot either trough dm from only x user or only in the server x channel y.
-      This can maybe include logging but mainly certain commands like !sync and maybe stuff that changes perrmanently to the .env
-      mainly because idk how to do permission roles riight now. if i do its gonna be like /gamerula in minecraft lol
-- [x] Make Embeds always same lenght and meybe height, also change color to cucumber color
+      This can maybe include logging but mainly certain commands like !sync and maybe stuff that changes permanently to the .env
+      mainly because IDK how to do permission roles right now.
+- [x] Make Embeds always same length and maybe height, also change color to cucumber color
 - [ ] Stop Stuttering when bot is searching song whiles playing
-- [ ] Performance (its good but could be better as always)
+- [ ] Performance (its good but could be better)
 
-## Queue system (wip / notes / not working rn)
-this is the my idea for the queue management. i just cannt get it working as intended. my assumption is that im not storing the history correctly,
-but with the nnew system below i might be able to do that, i just havent tried it yet and will do as soon as possibe
+## Queue system (/back doesnt work)
+this is my idea for the queue management. I just can't get it working as intended. my assumption is that im not storing the history correctly,
+but with the new system below I might be able to do that, I just haven't tried it yet and will do as soon as possible
 ### Approach Using Explicit Queue Management
 Instead of relying solely on played_songs, we can maintain a dedicated queue for both playing and played songs. This approach ensures clear management of song playback and history.
 
@@ -54,7 +68,7 @@ Here’s how you could modify your bot to implement this approach:
 
 ## Contributions
 
-Feel free to contribute to cucumber, cause idk how much i can do or will do.
+Feel free to contribute to cucumber, cause IDK how much I can do or will do.
 I'm always open to collaboration or help.
 
 ## License
