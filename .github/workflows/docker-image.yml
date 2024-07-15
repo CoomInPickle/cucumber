@@ -5,7 +5,7 @@ name: Build and push Docker image
 on:
   push:
     branches:
-      - main  # This specifies that the action will run on pushes to the main branch
+      - master  # This specifies that the action will run on pushes to the main branch
 
 jobs:
   build:
