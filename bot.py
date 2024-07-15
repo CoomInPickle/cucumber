@@ -17,9 +17,6 @@ BOT_TOKEN = os.getenv('BOT_TOKEN')
 APPLICATION_ID = os.getenv('APPLICATION_ID')
 client = commands.Bot(command_prefix="!", intents=discord.Intents.all(), application_id=APPLICATION_ID)
 
-
-bot_status = cycle(["Pickle","Pa"])
-
 @tasks.loop(seconds=30)
 async def change_status():
     joke = Joking.DarkJoke()
