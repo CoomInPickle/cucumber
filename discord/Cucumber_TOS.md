@@ -9,9 +9,7 @@ Welcome to Cucumber! By using this Discord bot, you agree to the following terms
 - You are responsible for any activity that occurs through your account.
 
 ## 3. Data Collection
-- The bot may collect and store data necessary for its operation, such as user IDs and messages.
-- The data collected will not be shared with third parties unless required by law.
-- The bot may use this data to improve its functionality and user experience.
+- The bot does not collect, store, or process any user data.
 
 ## 4. Content
 - You are responsible for the content you generate or share using the bot.
