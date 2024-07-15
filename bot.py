@@ -15,7 +15,7 @@ timestamp = datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")  # Timestamp
 # Bot Setup
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 APPLICATION_ID = os.getenv('APPLICATION_ID')
-client = commands.Bot(command_prefix="!", intents=discord.Intents.all(), application_id=APPLICATION_ID)
+client = commands.Bot(command_prefix=commands.when_mentioned, intents=discord.Intents.default(), application_id=APPLICATION_ID)
 
 @tasks.loop(seconds=30)
 async def change_status():
