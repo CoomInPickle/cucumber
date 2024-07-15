@@ -25,16 +25,16 @@ services:
 ## To-Do List
 
 - [x] Add music playback feature
-- [ ] ~~Create dynamic /help command~~ (help is already in the discord /menu)
+- [x] ~~Create dynamic /help command~~ (help is already in the discord /menu)
 - [ ] /queue command to list queue or clear and maybe more
-- [ ] Docker compose deployable
-- [ ] !update command witch will make the but pull new files from GitHub
+- [x] Docker compose deployable
+- [x] !update command witch will make the but pull new files from GitHub (image automatically updates on new push)
 - [ ] Adjustable music quality
 - [ ] function to make a dedicated "console chat" for the bot either trough dm from only x user or only in the server x channel y.
       This can maybe include logging but mainly certain commands like !sync and maybe stuff that changes permanently to the .env
       mainly because IDK how to do permission roles right now.
 - [x] Make Embeds always same length and maybe height, also change color to cucumber color
-- [ ] Stop Stuttering when bot is searching song whiles playing
+- [x] Stop Stuttering when bot is searching song whiles playing (partially fixed and only happening when not using direct link)
 - [ ] Performance (its good but could be better)
 
 ## Queue system (/back doesnt work)
