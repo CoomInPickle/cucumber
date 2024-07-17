@@ -29,7 +29,7 @@ services:
 - [ ] /queue command to list queue or clear and maybe more
 - [x] Docker compose deployable
 - [x] !update command witch will make the but pull new files from GitHub (image automatically updates on new push)
-- [ ] Adjustable music quality
+- [x] ~~Adjustable music quality~~ (always trying to get the best quality, anything else is pointless)
 - [ ] function to make a dedicated "console chat" for the bot either trough dm from only x user or only in the server x channel y.
       This can maybe include logging but mainly certain commands like !sync and maybe stuff that changes permanently to the .env
       mainly because IDK how to do permission roles right now.
