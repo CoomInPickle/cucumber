@@ -165,7 +165,7 @@ class Music(commands.Cog):
 
         await interaction.response.send_message(f"Joined {channel.name} and deafened!", ephemeral=True)
 
-    @app_commands.command(name="play", description="Play a song from a URL or search term")
+    @app_commands.command(name="play", description="Play a song from a URL or search term (e.g., /play <url/name>)")
     async def play(self, interaction: discord.Interaction, url: str):
         guild_id = interaction.guild.id
         voice_state = interaction.user.voice
@@ -281,7 +281,7 @@ class Music(commands.Cog):
 
         await interaction.response.defer()  # Defer to prevent "application not responding"
 
-    async def back(self, interaction: discord.Interaction):
+    async def back(self, interaction: discord.Interaction): #CURRENTLY NOT WORKING
         voice_client = interaction.guild.voice_client
         guild_id = interaction.guild.id
 
@@ -291,12 +291,12 @@ class Music(commands.Cog):
             return
 
         if len(self.played_songs.get(guild_id, [])) > 0:
-            previous_song = self.played_songs[guild_id].pop()  # Get and remove the last played song
+            previous_song = self.played_songs[guild_id].pop()
             current_song = voice_client.source
             if guild_id not in self.queues:
                 self.queues[guild_id] = []
             self.queues[guild_id].insert(0, current_song)
-            voice_client.stop()  # Stop the current song playback
+            voice_client.stop()
 
             # Play the previous song
             voice_client.play(previous_song, after=lambda e: self.client.loop.create_task(self.play_next(voice_client)))
