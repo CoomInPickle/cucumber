@@ -183,7 +183,13 @@ class Music(commands.Cog):
         self.text_channels[guild_id] = interaction.channel  # Track the text channel
 
         try:
-            await interaction.response.defer(ephemeral=False)  # Defer here
+            # Defer interaction to allow followup
+            try:
+                await interaction.response.defer(ephemeral=False)
+            except discord.errors.InvalidInteraction:
+                await interaction.followup.send("An issue occurred while deferring the interaction.", ephemeral=True)
+                return
+
             player = await YTDLSource.from_url(url, stream=True)
             if voice_client.is_playing() or self.queues.get(guild_id):
                 if guild_id not in self.queues:
@@ -194,7 +200,8 @@ class Music(commands.Cog):
                 if guild_id not in self.played_songs:
                     self.played_songs[guild_id] = deque()
                 voice_client.play(player, after=lambda e: self.client.loop.create_task(self.play_next(voice_client)))
-                print(f'{timestamp} [{voice_client.guild.name}/{voice_client.channel.name}] Now playing: {player.title}')
+                print(
+                    f'{timestamp} [{voice_client.guild.name}/{voice_client.channel.name}] Now playing: {player.title}')
                 await self.create_player_embed(interaction, player)
         except Exception as e:
             await interaction.followup.send(f'An error occurred: {str(e)}', ephemeral=True)
