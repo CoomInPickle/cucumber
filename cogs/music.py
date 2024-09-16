@@ -1,15 +1,10 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import datetime
 import yt_dlp
 import asyncio
 from collections import deque
-
-# Variables
-timestamp = datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")  # Timestamp for logs
-
-# Ensure FFmpeg is installed on your system and accessible via the command line
+from data.variables import timestamp
 
 # FFmpeg options
 ffmpeg_options = {

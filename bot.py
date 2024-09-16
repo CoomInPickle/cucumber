@@ -2,18 +2,11 @@ import discord
 from discord.ext import commands, tasks
 import os
 import asyncio
-import datetime
 import Joking
-from dotenv import load_dotenv
+from data.variables import BOT_TOKEN, APPLICATION_ID, timestamp
 
-# Load environment variables from .env file
-load_dotenv()
-# Variables
-timestamp = datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")  # Timestamp for log
 
 # Bot Setup
-BOT_TOKEN = os.getenv('BOT_TOKEN')
-APPLICATION_ID = os.getenv('APPLICATION_ID')
 client = commands.Bot(command_prefix=commands.when_mentioned, intents=discord.Intents.default(), application_id=APPLICATION_ID)
 
 @tasks.loop(seconds=30)

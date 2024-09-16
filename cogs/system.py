@@ -1,10 +1,8 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import datetime
+from data.variables import timestamp
 
-# Variables
-timestamp = datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")  # Timestamp for logs
 
 class system(commands.Cog):
     def __init__(self, client: commands.Bot):

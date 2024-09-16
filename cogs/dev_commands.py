@@ -1,15 +1,14 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import datetime
 from dotenv import load_dotenv
-
+from data.variables import timestamp
 
 # Variables
 load_dotenv()
 # Function to dynamically generate a timestamp for logs
 def current_timestamp():
-    return datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")
+    return timestamp
 
 class DevCommands(commands.Cog):
     def __init__(self, client):
