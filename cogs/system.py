@@ -8,10 +8,6 @@ class system(commands.Cog):
     def __init__(self, client: commands.Bot):
         self.client = client
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print(f"{timestamp} system cog loaded")
-
     @app_commands.command(name="ping", description="test slash command")
     async def ping(self, interaction: discord.Interaction):
         bot_latency = round(self.client.latency * 1000)

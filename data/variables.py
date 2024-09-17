@@ -23,3 +23,4 @@ load_dotenv()
 timestamp = datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")  # Timestamp for log
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 APPLICATION_ID = os.getenv('APPLICATION_ID')
+DEV_USER = None

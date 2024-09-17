@@ -84,10 +84,6 @@ class Music(commands.Cog):
         self.text_channels = {}  # Text channel per guild
 
     @commands.Cog.listener()
-    async def on_ready(self):
-        print(f"{timestamp} music cog loaded")
-
-    @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         # Only process if the bot is in a voice channel
         voice_client = member.guild.voice_client

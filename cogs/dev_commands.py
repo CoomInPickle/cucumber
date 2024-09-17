@@ -1,68 +1,53 @@
 import discord
-from discord import app_commands
 from discord.ext import commands
-from dotenv import load_dotenv
-from data.variables import timestamp
+from data.variables import timestamp, DEV_USER
 
-# Variables
-load_dotenv()
-# Function to dynamically generate a timestamp for logs
-def current_timestamp():
-    return timestamp
+# Check function to restrict commands to DEV_USER
+def is_dev_user():
+    async def predicate(ctx):
+        return ctx.author.id == DEV_USER
+    return commands.check(predicate)
 
 class DevCommands(commands.Cog):
     def __init__(self, client):
         self.client = client
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        print(f"{current_timestamp()} dev_commands cog loaded")
+    # Command to list servers the bot is in
+    @commands.command(name="servers", help="List servers the bot is in")
+    @is_dev_user()
+    async def servers(self, ctx):
+        try:
+            await self.list_servers(ctx)
+            await ctx.message.add_reaction("\N{THUMBS UP SIGN}")  # Thumbs up if successful
+        except Exception as e:
+            print(f"{timestamp} Error in 'servers' command: {e}")
+            await ctx.message.add_reaction("\N{CROSS MARK}")  # Cross mark if there's an error
 
-    # Autocomplete function to suggest server names, scoped to 'leave' command only
-    async def autocomplete_server(self, interaction: discord.Interaction, current: str):
-        return [
-            app_commands.Choice(name=guild.name, value=guild.name)
-            for guild in self.client.guilds if current.lower() in guild.name.lower()
-        ]
-
-    # Create a command group for 'dev' commands
-    dev_group = app_commands.Group(name="dev", description="Dev related commands")
-
-    # Subcommand for listing servers the bot is in
-    @dev_group.command(name="servers", description="List servers the bot is in")
-    @discord.app_commands.checks.has_permissions(administrator=True)
-    async def servers(self, interaction: discord.Interaction):
-        await self.list_servers(interaction)
-
-    # Subcommand for leaving a specific server with autocomplete for server names
-    @dev_group.command(name="leave", description="Leave a specified server")
-    @discord.app_commands.checks.has_permissions(administrator=True)
-    @app_commands.autocomplete(server=autocomplete_server)  # Attach the autocomplete function here
-    async def leave(self, interaction: discord.Interaction, server: str):
-        await self.leave_server(interaction, server)
-
-    # Subcommand for 'other_command' (placeholder for future functionality)
-    @dev_group.command(name="other_command", description="Placeholder for other command functionality")
-    @discord.app_commands.checks.has_permissions(administrator=True)
-    async def other_command(self, interaction: discord.Interaction):
-        await self.other_command(interaction)
+    # Command to leave a specific server
+    @commands.command(name="leave", help="Leave a specified server")
+    @is_dev_user()
+    async def leave(self, ctx, *, server_name: str):
+        try:
+            await self.leave_server(ctx, server_name)
+            await ctx.message.add_reaction("\N{THUMBS UP SIGN}")  # Thumbs up if successful
+        except Exception as e:
+            print(f"{timestamp} Error in 'leave' command: {e}")
+            await ctx.message.add_reaction("\N{CROSS MARK}")  # Cross mark if there's an error
 
     # Helper function to list all servers the bot is in
-    async def list_servers(self, interaction: discord.Interaction):
+    async def list_servers(self, ctx):
         guilds = self.client.guilds
         server_names = "\n".join(guild.name for guild in guilds)
-        await interaction.response.send_message(f"Servers the bot is in:\n{server_names}")
+        await ctx.send(f"Servers the bot is in:\n{server_names}")
 
     # Helper function to leave a specified server
-    async def leave_server(self, interaction: discord.Interaction, server: str):
-        guild = discord.utils.find(lambda g: g.name == server, self.client.guilds)
+    async def leave_server(self, ctx, server_name: str):
+        guild = discord.utils.find(lambda g: g.name == server_name, self.client.guilds)
 
         if guild:
             # Try to find a suitable channel to send the goodbye message
             channel = None
 
-            # Check if the bot has sent a message before and can access the last channel it sent to
-            # (This requires additional tracking that could be implemented based on your bot's behavior)
             # Fallback: get the first text channel it has permission to send a message in
             if not channel:
                 for ch in guild.text_channels:
@@ -78,26 +63,12 @@ class DevCommands(commands.Cog):
             await guild.leave()
 
             # Confirm action to the user who issued the command
-            await interaction.response.send_message(f"Successfully left the server: {server}")
+            await ctx.send(f"Successfully left the server: {server_name}")
         else:
-            await interaction.response.send_message(f"Server not found: {server}")
-
-    # Placeholder for other command functionality
-    async def other_command(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Placeholder for 'other_command' functionality.")
-
-    # Error handler for 'dev' commands
-    @dev_group.error
-    async def dev_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
-        if isinstance(error, discord.app_commands.MissingPermissions):
-            await interaction.response.send_message("You don't have permission to use this command.", ephemeral=True)
-        elif isinstance(error, discord.app_commands.CheckFailure):
-            await interaction.response.send_message("You cannot use this command due to a check failure.",
-                                                    ephemeral=True)
-        else:
-            await interaction.response.send_message(f"An error occurred: {error}", ephemeral=True)
-
+            await ctx.send(f"Server not found: {server_name}")
 
 # Setup function to load the cog
+"""
 async def setup(client):
     await client.add_cog(DevCommands(client))
+"""
