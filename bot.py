@@ -3,7 +3,7 @@ from discord.ext import commands, tasks
 import os
 import asyncio
 import Joking
-from data.variables import BOT_TOKEN, APPLICATION_ID, timestamp
+from data.variables import BOT_TOKEN, APPLICATION_ID, Timestamp
 
 
 # Bot Setup
@@ -16,7 +16,7 @@ async def change_status():
 
 @client.event
 async def on_ready():
-    print(f"{timestamp} Cucumber is connected to Discord")
+    print(f"{Timestamp()} Cucumber is connected to Discord")
     change_status.start()
 
 
@@ -24,16 +24,11 @@ async def on_ready():
 async def sync(ctx):
     try:
         synced = await client.tree.sync()
-        print(f"{timestamp} Synced {len(synced)} command(s).")
-
-        # React with a thumbs up (Unicode value) if the sync is successful
+        print(f"{Timestamp()} Synced {len(synced)} command(s).")
         await ctx.message.add_reaction("\N{THUMBS UP SIGN}")
 
     except Exception as e:
-        # Print the error for logging purposes
-        print(f"{timestamp} Failed to sync commands: {e}")
-
-        # React with a cross mark (Unicode value) if there was an issue
+        print(f"{Timestamp()} Failed to sync commands: {e}")
         await ctx.message.add_reaction("\N{CROSS MARK}")
 
 
@@ -41,15 +36,12 @@ async def load():
     for filename in os.listdir("./cogs"):
         if filename.endswith(".py"):
             try:
-                # Attempt to load the extension
                 await client.load_extension(f"cogs.{filename[:-3]}")
-                print(f"{timestamp} Successfully loaded {filename}")
+                print(f"{Timestamp()} Successfully loaded {filename}")
             except discord.ext.commands.errors.NoEntryPointError:
-                # Handle the error if there is no setup function in the cog
-                print(f"{timestamp} Failed to load {filename}: setup function not found.")
+                print(f"{Timestamp()} Failed to load {filename}: setup function not found.")
             except Exception as e:
-                # Catch any other exceptions and print them for debugging
-                print(f"{timestamp} Failed to load {filename}: {e}")
+                print(f"{Timestamp()} Failed to load {filename}: {e}")
 
 
 async def main():

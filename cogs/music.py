@@ -4,15 +4,15 @@ from discord.ext import commands
 import yt_dlp
 import asyncio
 from collections import deque
-from data.variables import timestamp
+from data.variables import Timestamp
 
-# FFmpeg options
+
 ffmpeg_options = {
     'options': '-vn',
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
 }
 
-# YTDL options
+
 ytdl_format_options = {
     'format': 'bestaudio/best',
     'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
@@ -21,10 +21,10 @@ ytdl_format_options = {
     'nocheckcertificate': True,
     'ignoreerrors': False,
     'logtostderr': False,
-    'quiet': True,  # Add this line to suppress most logs
+    'quiet': True,
     'no_warnings': True,
     'default_search': 'auto',
-    'source_address': '0.0.0.0',  # Bind to ipv4 since ipv6 addresses cause issues sometimes
+    'source_address': '0.0.0.0',
 }
 
 
@@ -48,7 +48,6 @@ class YTDLSource(discord.PCMVolumeTransformer):
         data = await asyncio.to_thread(ydl.extract_info, url, download=not stream)
 
         if 'entries' in data:
-            # take first item from a playlist
             data = data['entries'][0]
 
         filename = data['url'] if stream else ydl.prepare_filename(data)
@@ -78,14 +77,13 @@ class MusicView(discord.ui.View):
 class Music(commands.Cog):
     def __init__(self, client: commands.Bot):
         self.client = client
-        self.queues = {}  # Queue per guild
-        self.played_songs = {}  # Played songs per guild
-        self.current_embed_messages = {}  # Current embed message per guild
-        self.text_channels = {}  # Text channel per guild
+        self.queues = {}
+        self.played_songs = {}
+        self.current_embed_messages = {}
+        self.text_channels = {}
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        # Only process if the bot is in a voice channel
         voice_client = member.guild.voice_client
         if voice_client and voice_client.channel:
             if len(voice_client.channel.members) == 1:
@@ -104,7 +102,7 @@ class Music(commands.Cog):
             except discord.errors.NotFound:
                 pass
             del self.current_embed_messages[guild_id]
-            print(f"{timestamp} [{voice_client.guild.name}/{voice_client.channel.name}] Disconnected.")
+            print(f"{Timestamp()} [{voice_client.guild.name}/{voice_client.channel.name}] Disconnected.")
 
 
     async def create_player_embed(self, interaction, player):
@@ -171,10 +169,9 @@ class Music(commands.Cog):
         elif voice_client.channel != voice_state.channel:
             await voice_client.move_to(voice_state.channel)
 
-        self.text_channels[guild_id] = interaction.channel  # Track the text channel
+        self.text_channels[guild_id] = interaction.channel
 
         try:
-            # Defer interaction to allow followup
             try:
                 await interaction.response.defer(ephemeral=False)
             except discord.errors.InvalidInteraction:
@@ -192,7 +189,7 @@ class Music(commands.Cog):
                     self.played_songs[guild_id] = deque()
                 voice_client.play(player, after=lambda e: self.client.loop.create_task(self.play_next(voice_client)))
                 print(
-                    f'{timestamp} [{voice_client.guild.name}/{voice_client.channel.name}] Now playing: {player.title}')
+                    f'{Timestamp()} [{voice_client.guild.name}/{voice_client.channel.name}] Now playing: {player.title}')
                 await self.create_player_embed(interaction, player)
         except Exception as e:
             await interaction.followup.send(f'An error occurred: {str(e)}', ephemeral=True)
@@ -200,7 +197,6 @@ class Music(commands.Cog):
     @app_commands.command(name="leave", description="Leave the voice channel and clean up")
     async def leave(self, interaction: discord.Interaction):
         voice_client = interaction.guild.voice_client
-        guild_id = interaction.guild.id
 
         if voice_client is None:
             await interaction.response.send_message("I'm not connected to a voice channel.", ephemeral=True)
@@ -215,27 +211,26 @@ class Music(commands.Cog):
             player = self.queues[guild_id].pop(0)
             if guild_id not in self.played_songs:
                 self.played_songs[guild_id] = deque()
-            self.played_songs[guild_id].appendleft(player)  # Move the played song to played_songs
+            self.played_songs[guild_id].appendleft(player)
             voice_client.play(player, after=lambda e: self.client.loop.create_task(
                 self.play_next(voice_client)) if e is None else print(
-                f'{timestamp} [{voice_client.guild.name}/{voice_client.channel.name}] Player error: {e}'))
+                f'{Timestamp()} [{voice_client.guild.name}/{voice_client.channel.name}] Player error: {e}'))
             print(
-                f'{timestamp} [{voice_client.guild.name}/{voice_client.channel.name}] Now playing next song in queue: {player.title}')
+                f'{Timestamp()} [{voice_client.guild.name}/{voice_client.channel.name}] Now playing next song in queue: {player.title}')
             await self.update_player_embed(guild_id, player)
         else:
-            await asyncio.sleep(2)  # Wait a short period to ensure correct state check
-            # Check if voice_client is connected and either playing or paused
+            await asyncio.sleep(2)
             if voice_client.is_connected() and (voice_client.is_playing() or voice_client.is_paused()):
                 pass
             else:
                 await asyncio.sleep(300)
-                # Check again after 5 minutes
+
                 if not self.queues.get(guild_id) and voice_client.is_connected() and not (voice_client.is_playing() or voice_client.is_paused()):
                     if guild_id in self.current_embed_messages:
                         try:
                             await self.current_embed_messages[guild_id].delete()
                         except discord.errors.NotFound:
-                            pass  # Handle case where message is already deleted or doesn't exist
+                            pass
                     await voice_client.disconnect()
 
     async def toggle_pause_resume(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -253,7 +248,7 @@ class Music(commands.Cog):
             button.emoji = "<:play_pause:1136672190033559564>"
 
         await interaction.response.edit_message(view=button.view)
-        await interaction.response.defer()  # Defer to prevent "application not responding"
+        await interaction.response.defer()
 
     async def skip(self, interaction: discord.Interaction):
         voice_client = interaction.guild.voice_client
@@ -277,7 +272,7 @@ class Music(commands.Cog):
                 except discord.errors.NotFound:
                     pass
 
-        await interaction.response.defer()  # Defer to prevent "application not responding"
+        await interaction.response.defer()
 
     async def back(self, interaction: discord.Interaction): #CURRENTLY NOT WORKING
         voice_client = interaction.guild.voice_client
@@ -295,19 +290,16 @@ class Music(commands.Cog):
                 self.queues[guild_id] = []
             self.queues[guild_id].insert(0, current_song)
             voice_client.stop()
-
-            # Play the previous song
             voice_client.play(previous_song, after=lambda e: self.client.loop.create_task(self.play_next(voice_client)))
             await self.update_player_embed(guild_id, previous_song)
         else:
             print("No previous song in the history.")
             await interaction.response.send_message("No previous song to play.", ephemeral=True)
-
-        await interaction.response.defer()  # Defer to prevent "application not responding"
+        await interaction.response.defer()
 
     async def on_play_song(self, guild_id, player):
         if guild_id in self.played_songs and self.played_songs[guild_id] and self.played_songs[guild_id][-1].url == player.url:
-            return  # Avoid adding duplicate songs
+            return
         if guild_id not in self.played_songs:
             self.played_songs[guild_id] = deque()
         self.played_songs[guild_id].append(player)

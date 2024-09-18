@@ -16,11 +16,15 @@ import os
 from dotenv import load_dotenv
 import datetime
 
-# Load environment variables from .env file
+
 load_dotenv()
 
 # Variables
-timestamp = datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")  # Timestamp for log
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 APPLICATION_ID = os.getenv('APPLICATION_ID')
 DEV_USER = None
+
+# Fucntions
+def Timestamp():
+    stamp = datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")  # Timestamp for log
+    return stamp

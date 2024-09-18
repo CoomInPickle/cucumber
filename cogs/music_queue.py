@@ -2,9 +2,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import datetime
 
-timestamp = datetime.datetime.now().strftime("[%Y-%m-%d %H:%M:%S]")  # Timestamp for logs
 class QueueView(discord.ui.View):
     def __init__(self, cog, queue, current_song, page=0):
         super().__init__(timeout=None)
