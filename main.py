@@ -4,10 +4,11 @@ import os
 import asyncio
 import Joking
 from data.variables import BOT_TOKEN, APPLICATION_ID, Timestamp
-
+import logging.handlers
 
 # Bot Setup
 client = commands.Bot(command_prefix=commands.when_mentioned, intents=discord.Intents.default(), application_id=APPLICATION_ID)
+discord.utils.setup_logging(level=logging.INFO, root=False)
 
 @tasks.loop(seconds=30)
 async def change_status():
@@ -42,7 +43,6 @@ async def load():
                 print(f"{Timestamp()} Failed to load {filename}: setup function not found.")
             except Exception as e:
                 print(f"{Timestamp()} Failed to load {filename}: {e}")
-
 
 async def main():
     async with client:
