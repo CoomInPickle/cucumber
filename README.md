@@ -6,7 +6,6 @@
   <img src="https://img.shields.io/badge/license-MIT-green">
   <img src="https://img.shields.io/github/last-commit/CoomInPickle/cucumber">
 </div>
-<br>
 
 Cucumber is a personal Discord bot which I want to use for all kinds of things like music, since there is no good one that is reliable.  
 Also, I'm going to use it for other helpful stuff, but I'll decide on that later.
