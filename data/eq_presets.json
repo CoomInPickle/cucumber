@@ -1,0 +1,8 @@
+{
+  "flat": "",
+  "bassboost": "bass=g=10",
+  "nightcore": "asetrate=48000*1.25,atempo=1.1",
+  "vaporwave": "asetrate=44100*0.8,atempo=1.0",
+  "8d": "apulsator=hz=0.09",
+  "slowreverb": "asetrate=44100*0.8,atempo=1.0,aecho=0.8:0.88:60:0.4"
+}

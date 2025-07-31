@@ -5,6 +5,8 @@ import yt_dlp
 import asyncio
 from collections import deque
 from data.variables import Timestamp
+import time
+
 
 ffmpeg_options = {
     'options': '-vn',
@@ -76,6 +78,7 @@ class Music(commands.Cog):
         self.queues = {}
         self.current_embed_messages = {}
         self.text_channels = {}
+        self.current_sources = {}
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -89,6 +92,7 @@ class Music(commands.Cog):
         guild_id = voice_client.guild.id
         await voice_client.disconnect()
         self.queues[guild_id] = deque()
+        self.current_sources.pop(guild_id, None)
 
         # Clear EQ settings if present
         eq_cog = self.client.get_cog("Equalizer")
@@ -184,7 +188,10 @@ class Music(commands.Cog):
                 queue.append(player)
                 await interaction.followup.send(f"Added {player.title} to the queue.")
             else:
-                vc.play(player, after=lambda e: self.client.loop.create_task(self.play_next(vc)))
+                player.start_time = time.time()
+                wrapped = discord.PCMVolumeTransformer(player, volume=0.5)
+                vc.play(wrapped, after=lambda e: self.client.loop.create_task(self.play_next(vc)))
+                self.current_sources[guild_id] = player
                 print(f'{Timestamp()} [{vc.guild.name}/{vc.channel.name}] Now playing: {player.title}')
                 await self.create_player_embed(interaction, player)
 
@@ -206,7 +213,10 @@ class Music(commands.Cog):
 
         if queue:
             player = queue.popleft()
-            vc.play(player, after=lambda e: self.client.loop.create_task(self.play_next(vc)) if not e else print(f"{Timestamp()} Player error: {e}"))
+            player.start_time = time.time()
+            wrapped = discord.PCMVolumeTransformer(player, volume=0.5)
+            vc.play(wrapped, after=lambda e: self.client.loop.create_task(self.play_next(vc)))
+            self.current_sources[guild_id] = player
             print(f"{Timestamp()} [{vc.guild.name}/{vc.channel.name}] Now playing next: {player.title}")
             await self.update_player_embed(guild_id, player)
         else:

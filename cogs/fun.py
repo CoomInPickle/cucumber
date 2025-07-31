@@ -10,7 +10,6 @@ class Fun(commands.Cog):
         self.active_vcs = set()
         self.random_sound_task.start()
 
-
     async def play_sound(self, voice_channel):
         try:
             vc = await voice_channel.connect()
@@ -18,12 +17,10 @@ class Fun(commands.Cog):
             vc = discord.utils.get(self.client.voice_clients, guild=voice_channel.guild)
 
         if not vc:
-
             return
 
         sound_path = "sounds/hi.mp3"
         if not os.path.exists(sound_path):
-
             return
 
         vc.play(discord.FFmpegPCMAudio(sound_path, options="-filter:a volume=5.0"))
@@ -32,7 +29,6 @@ class Fun(commands.Cog):
             await asyncio.sleep(1)
 
         await vc.disconnect()
-
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -47,12 +43,18 @@ class Fun(commands.Cog):
                 if len(vc.members) > 0:
                     self.active_vcs.add(vc)
 
-    @tasks.loop(seconds=60)
+    @tasks.loop(seconds=3600)
     async def random_sound_task(self):
         if not self.active_vcs:
             return
 
-        if random.random() < 0.1:
+        # Skip if the bot is already in a VC or playing audio
+        for vc in self.client.voice_clients:
+            if vc.is_connected() or vc.is_playing():
+                print("[Fun Cog] Bot is already in use — skipping.")
+                return
+
+        if random.random() < 0.01:
             vc = random.choice(list(self.active_vcs))
             if vc and len(vc.members) > 0:
                 await self.play_sound(vc)

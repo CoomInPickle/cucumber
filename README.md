@@ -43,6 +43,24 @@ services:
 ## Queue system
 /play either plays a song or adds it to the queue. /queue shows the current queue. Thats all
 
+## Equalizer
+Apply real-time audio filters to currently playing songs using ```/eq```.
+Filters are customizable via the eq_presets.json file. The file come pre-loaded with a few presets to apply or use as examples to create custom ones.
+
+
+### Avalable FFmpeg filters:
+| Filter Type  | Filter Code Example                   | Effect                    |
+|--------------|---------------------------------------|---------------------------|
+| Bass Boost   | `bass=g=15`                           | Boosts bass frequencies   |
+| Treble Boost | `treble=g=5`                          | Boosts high frequencies   |
+| Speed Up     | `atempo=1.25`                         | Speeds up audio           |
+| Slow Down    | `atempo=0.8`                          | Slows down audio          |
+| Pitch Up     | `asetrate=48000*1.25,aresample=48000` | Raises pitch              |
+| Pitch Down   | `asetrate=48000*0.8,aresample=48000`  | Lowers pitch              |
+| 8D           | `apulsator=hz=0.09`                   | Panning effect (3D audio) |
+| Echo/Reverb  | `aecho=0.8:0.9:1000:0.3`              | Adds echo                 |
+| Lowpass      | `lowpass=f=3000`                      | Muffles highs             |
+| Highpass     | `highpass=f=2000`                     | Removes lows              |
 
 ## Issues / Suggestions
 [Here](https://github.com/CoomInPickle/cucumber/issues "cucumber/issues")
