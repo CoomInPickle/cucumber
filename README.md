@@ -1,5 +1,4 @@
 # <p align="center"><strong>Cucumber Bot 🥒</strong></p>
-<hr>
 <div align="center">
   <img src="https://img.shields.io/badge/language-Python-blue">
   <img src="https://img.shields.io/github/issues/CoomInPickle/cucumber">
