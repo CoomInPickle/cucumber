@@ -89,12 +89,19 @@ class Music(commands.Cog):
         guild_id = voice_client.guild.id
         await voice_client.disconnect()
         self.queues[guild_id] = deque()
+
+        # Clear EQ settings if present
+        eq_cog = self.client.get_cog("Equalizer")
+        if eq_cog:
+            await eq_cog.clear_eq(guild_id)
+
         msg = self.current_embed_messages.pop(guild_id, None)
         if msg:
             try:
                 await msg.delete()
             except discord.errors.NotFound:
                 pass
+
         print(f"{Timestamp()} [{voice_client.guild.name}/{voice_client.channel.name}] Disconnected.")
 
     async def create_player_embed(self, interaction, player):

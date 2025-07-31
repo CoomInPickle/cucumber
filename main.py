@@ -7,7 +7,11 @@ from data.variables import BOT_TOKEN, APPLICATION_ID, Timestamp
 import logging.handlers
 
 # Bot Setup
-client = commands.Bot(command_prefix=commands.when_mentioned, intents=discord.Intents.default(), application_id=APPLICATION_ID)
+intents = discord.Intents.default()
+intents.voice_states = True
+intents.message_content = True  # optional, for other commands
+
+client = commands.Bot(command_prefix=commands.when_mentioned, intents=intents, application_id=APPLICATION_ID)
 discord.utils.setup_logging(level=logging.INFO, root=False)
 
 @tasks.loop(seconds=30)
