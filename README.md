@@ -27,6 +27,7 @@ services:
 
 ## To-Do List
 
+- [ ] ~~Add crossfade between songs~~
 - [x] Add music playback feature  
 - [x] ~~Create dynamic /help command~~ (help is already in the Discord /menu)  
 - [ ] /queue command to list queue or clear, and maybe more  
@@ -47,6 +48,11 @@ services:
 Apply real-time audio filters to currently playing songs using ```/eq```.
 Filters are customizable via the eq_presets.json file. The file come pre-loaded with a few presets to apply or use as examples to create custom ones.
 
+## Quotes
+The quotes feature enabled running the /quote command makes the bot search for a channel containing the word `quote` and searches for a 
+quote within that channel to represent it on an image with the users pfp. For the bot to find a quote the quote must be formatted
+like this: `"quote here" @user`, anything else will be ignored.
+With the environment variable `QUOTE_COG = true` the feature can either be enabled or disabled.
 
 ### Avalable FFmpeg filters:
 | Filter Type  | Filter Code Example                   | Effect                    |
