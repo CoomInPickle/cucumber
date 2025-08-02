@@ -8,9 +8,6 @@ import random
 import re
 import textwrap
 
-
-
-
 class Quote(commands.Cog):
     def __init__(self, client: commands.Bot):
         self.client = client
@@ -96,7 +93,7 @@ class Quote(commands.Cog):
             draw.text((x_start, y), line, font=font, fill="white")
 
         # Draw author below with spacing
-        y = y_start + len(wrapped_lines) * line_height + author_spacing
+        y = y_start + len(wrapped_lines) * line_height + 10
         draw.text((x_start, y), author, font=font, fill="white")
 
         # Save to buffer
@@ -111,8 +108,6 @@ class Quote(commands.Cog):
             content=f"{msg_url}",
             file=file
         )
-
-
 
 async def setup(client):
     await client.add_cog(Quote(client))
