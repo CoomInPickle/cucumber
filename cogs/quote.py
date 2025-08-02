@@ -7,6 +7,8 @@ import aiohttp
 import random
 import re
 import textwrap
+import os
+import platform
 
 class Quote(commands.Cog):
     def __init__(self, client: commands.Bot):
@@ -69,8 +71,15 @@ class Quote(commands.Cog):
 
         # Draw text
         draw = ImageDraw.Draw(img)
+
+        def get_font():
+            if platform.system() == "Windows":
+                return ImageFont.truetype("arial.ttf", 32)
+            else:
+                return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
+
         try:
-            font = ImageFont.truetype("arial.ttf", 32)
+            font = get_font()
         except:
             font = ImageFont.load_default()
 
