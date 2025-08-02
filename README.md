@@ -20,8 +20,9 @@ services:
     image: coominpickle/cucumber:latest
     container_name: cucumber-discord-bot
     environment:
-      - BOT_TOKEN=\${BOT_TOKEN}               # Bot token from dev portal
-      - APPLICATION_ID=\${APPLICATION_ID}     # Application ID from dev portal
+      - BOT_TOKEN=${BOT_TOKEN}  #Bot token from dev portal
+      - APPLICATION_ID=${APPLICATION_ID}  #Application ID	from dev portal
+      - QUOTE_COG = ${QUOTE_COG}  #enable or disable quotes cog true/false 
     restart: unless-stopped
 ```
 
