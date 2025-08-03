@@ -148,21 +148,6 @@ class Music(commands.Cog):
         if channel:
             self.current_embed_messages[guild_id] = await channel.send(embed=embed, view=MusicView(self.client, self))
 
-    @app_commands.command(name="join", description="Join the voice channel.")
-    async def join(self, interaction: discord.Interaction):
-        channel = interaction.user.voice.channel if interaction.user.voice else None
-        if not channel:
-            await interaction.response.send_message("You are not connected to a voice channel.", ephemeral=True)
-            return
-
-        vc = interaction.guild.voice_client
-        if vc:
-            await vc.move_to(channel)
-        else:
-            await channel.connect(self_deaf=True)
-
-        await interaction.response.send_message(f"Joined {channel.name} and deafened!", ephemeral=True)
-
     @app_commands.command(name="play", description="Play a song from a URL or search term.")
     async def play(self, interaction: discord.Interaction, query: str):
         guild_id = interaction.guild.id

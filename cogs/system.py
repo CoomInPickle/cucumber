@@ -12,5 +12,20 @@ class system(commands.Cog):
         await interaction.response.send_message(f"Pong! {bot_latency} ms.", ephemeral=True)
 
 
+    @app_commands.command(name="join", description="Join the voice channel.")
+    async def join(self, interaction: discord.Interaction):
+        channel = interaction.user.voice.channel if interaction.user.voice else None
+        if not channel:
+            await interaction.response.send_message("You are not connected to a voice channel.", ephemeral=True)
+            return
+
+        vc = interaction.guild.voice_client
+        if vc:
+            await vc.move_to(channel)
+        else:
+            await channel.connect(self_deaf=True)
+
+        await interaction.response.send_message(f"Joined {channel.name} and deafened!", ephemeral=True)
+
 async def setup(client):
     await client.add_cog(system(client))
