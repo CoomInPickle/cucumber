@@ -43,7 +43,7 @@ class Fun(commands.Cog):
                 if len(vc.members) > 0:
                     self.active_vcs.add(vc)
 
-    @tasks.loop(seconds=3600)
+    @tasks.loop(seconds=7200)
     async def random_sound_task(self):
         if not self.active_vcs:
             return
@@ -54,7 +54,7 @@ class Fun(commands.Cog):
                 print("[Fun Cog] Bot is already in use — skipping.")
                 return
 
-        if random.random() < 0.01:
+        if random.random() < 0.04255:
             vc = random.choice(list(self.active_vcs))
             if vc and len(vc.members) > 0:
                 await self.play_sound(vc)
