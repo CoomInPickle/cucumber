@@ -28,11 +28,20 @@ class Quote(commands.Cog):
         quotes = []
 
         for msg in messages:
-            match = re.match(r'^"(.+)"\s+<@!?(\d+)>', msg.content)
-            if match and msg.mentions:
-                quote_text = match.group(1)
-                user = msg.mentions[0]
-                quotes.append((quote_text.strip(), user, msg))
+            # Match all quoted parts with optional mention
+            matches = re.findall(r'[“"‘\'](.+?)[”"’\']\s*(?:-*\s*)?(<@!?\d+>)?', msg.content, re.DOTALL)
+
+            for text, mention in matches:
+                text = text.strip()
+                if not text:
+                    continue
+
+                if msg.mentions:
+                    user = msg.mentions[0]
+                else:
+                    user = msg.author
+
+                quotes.append((text, user, msg))
 
         if not quotes:
             await interaction.followup.send("No valid quotes found in #quotes.")
@@ -40,7 +49,6 @@ class Quote(commands.Cog):
 
         quote_text, user, msg = random.choice(quotes)
 
-        # Fetch user avatar
         avatar_url = user.display_avatar.replace(size=512).url
         async with aiohttp.ClientSession() as session:
             async with session.get(avatar_url) as resp:
@@ -53,13 +61,9 @@ class Quote(commands.Cog):
         # Load and resize avatar
         avatar_img = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA").resize((size, size))
 
-        # Create black fade overlay (fade on left half, solid black on right)
         gradient = Image.new("L", (size, 1))
         for x in range(size):
-            if x < half:
-                alpha = int(255 * (x / half))  # fade from 0 to 255
-            else:
-                alpha = 255
+            alpha = int(255 * (x / half)) if x < half else 255
             gradient.putpixel((x, 0), alpha)
 
         alpha_mask = gradient.resize((size, size))
@@ -88,7 +92,6 @@ class Quote(commands.Cog):
 
         wrapped_lines = textwrap.wrap(quote_full, width=20)
 
-        # Vertical center
         bbox = draw.textbbox((0, 0), "A", font=font)
         line_height = (bbox[3] - bbox[1]) + 6
         author_spacing = 30
@@ -96,12 +99,12 @@ class Quote(commands.Cog):
         y_start = (size - total_height) // 2
         x_start = half + 20
 
-        # Draw quote
+
         for i, line in enumerate(wrapped_lines):
             y = y_start + i * line_height
             draw.text((x_start, y), line, font=font, fill="white")
 
-        # Draw author below with spacing
+
         y = y_start + len(wrapped_lines) * line_height + 10
         draw.text((x_start, y), author, font=font, fill="white")
 
@@ -113,10 +116,7 @@ class Quote(commands.Cog):
 
         msg_url = f"https://discord.com/channels/{msg.guild.id}/{msg.channel.id}/{msg.id}"
 
-        await interaction.followup.send(
-            content=f"{msg_url}",
-            file=file
-        )
+        await interaction.followup.send(content=f"{msg_url}", file=file)
 
 async def setup(client):
     await client.add_cog(Quote(client))
