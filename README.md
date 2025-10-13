@@ -22,9 +22,24 @@ services:
     environment:
       - BOT_TOKEN=${BOT_TOKEN}  #Bot token from dev portal
       - APPLICATION_ID=${APPLICATION_ID}  #Application ID	from dev portal
-      - QUOTE_COG = ${QUOTE_COG}  #enable or disable quotes cog true/false 
     restart: unless-stopped
 ```
+### Disabling Cogs (Features)
+Cogs (Features) can be disabled by adding ```####_cog = false``` to the environment variables.
+Replace the #### with the respective name of the cog. Keep in mind that disabling certain cogs can break stuff.
+Its mainly meant to disable the Quotes cog and the Instagram cog.
+Here is a list of all available cogs:
+
+| Name            | note |
+|-----------------|------|
+| fun             | -    |
+| instagram       | -    |
+| music           | -    |
+| music_eq        | -    |
+| music_queue     | -    |
+| quote           | -    |
+| system          | -    |
+
 
 ## To-Do List
 
@@ -55,7 +70,14 @@ quote within that channel to represent it on an image with the users pfp. For th
 like this: `"quote here" @user`, anything else will be ignored.
 With the environment variable `QUOTE_COG = true` the feature can either be enabled or disabled.
 
-### Avalable FFmpeg filters:
+## Fun
+The fun feature adds random stuff:
+- Joins VC with people randomly and plays /sounds/hi.mp3
+
+## Instagram thing
+The Instagramm feature deletes any Instagram link sent and sends the post as an actual video. Cause clicking a link and accepting cookies is annoying :)
+
+## Avalable FFmpeg filters for the EQ:
 | Filter Type  | Filter Code Example                   | Effect                    |
 |--------------|---------------------------------------|---------------------------|
 | Bass Boost   | `bass=g=15`                           | Boosts bass frequencies   |
