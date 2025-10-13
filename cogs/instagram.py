@@ -48,7 +48,7 @@ class Instagram(commands.Cog):
 
             # Build a nice header message
             short_url = url.split("?")[0]
-            msg_text = f"**{message.author.mention} shared a [reel]**"
+            msg_text = f"**{message.author.mention} shared a reel**"
 
             async with aiohttp.ClientSession() as session:
                 async with session.get(media_url) as resp:
