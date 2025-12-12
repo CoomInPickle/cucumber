@@ -60,7 +60,7 @@ class Fun(commands.Cog):
         for channel in guild.voice_channels:
             users = {m.id for m in channel.members}
 
-            if users == CUDDLE_USERS:
+            if CUDDLE_USERS.issubset(users) and len(users) == 2:
                 if channel.id not in self.original_names:
                     self.original_names[channel.id] = channel.name
                 if channel.name != CUDDLE_NAME:
