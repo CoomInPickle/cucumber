@@ -15,10 +15,18 @@ intents.message_content = True  # optional, for other commands
 client = commands.Bot(command_prefix=commands.when_mentioned, intents=intents, application_id=APPLICATION_ID)
 discord.utils.setup_logging(level=logging.INFO, root=False)
 
-@tasks.loop(seconds=30)
+@tasks.loop(minutes=3)
 async def change_status():
-    joke = Joking.DarkJoke()
-    await client.change_presence(activity=discord.Game(joke))
+    try:
+        joke = Joking.DarkJoke()
+
+        if joke:
+            await client.change_presence(
+                activity=discord.Game(name=str(joke)[:120])
+            )
+
+    except Exception as e:
+        print("Status error:", e)
 
 @client.event
 async def on_ready():
