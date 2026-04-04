@@ -134,4 +134,4 @@ dmypy.json
 .idea
 
 # Project-specific
-cookies.txt
+config/cookies.txt

@@ -4,14 +4,22 @@ WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies including fonts
+# Install system dependencies including curl (needed for Deno install)
 RUN apt-get update && apt-get install -y \
     git \
     libffi-dev \
     ffmpeg \
     fonts-dejavu-core \
+    curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# Install Deno
+RUN curl -fsSL https://deno.land/install.sh | sh
+
+# Add Deno to PATH
+ENV DENO_INSTALL="/root/.deno"
+ENV PATH="$DENO_INSTALL/bin:$PATH"
 
 # Install Python dependencies
 COPY requirements.txt /app/

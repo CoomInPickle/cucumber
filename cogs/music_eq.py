@@ -6,7 +6,7 @@ import os
 from typing import Optional
 import time
 
-PRESETS_PATH = "data/eq_presets.json"
+PRESETS_PATH = "config/eq_presets.json"
 
 class Equalizer(commands.Cog):
     def __init__(self, client: commands.Bot):
