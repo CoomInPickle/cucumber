@@ -7,116 +7,100 @@ import aiohttp
 import random
 import re
 import textwrap
-import os
 import platform
+
+QUOTE_PATTERN = re.compile(r'[""\'\'"](.+?)[""\'\'\"]\s*(?:-*\s*)?(<@!?\d+>)?', re.DOTALL)
+FONT_PATH = (
+    "arial.ttf"
+    if platform.system() == "Windows"
+    else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+)
+
 
 class Quote(commands.Cog):
     def __init__(self, client: commands.Bot):
         self.client = client
 
-    @app_commands.command(name="quote", description="Get a random quote image from the #quotes channel.")
+    @app_commands.command(name="quote", description="Show a random quote image from the #quotes channel.")
     async def quote(self, interaction: discord.Interaction):
         await interaction.response.defer()
 
-        # Find the #quotes channel
-        quotes_channel = discord.utils.find(lambda c: "quote" in c.name.lower(), interaction.guild.text_channels)
+        quotes_channel = discord.utils.find(
+            lambda c: "quote" in c.name.lower(),
+            interaction.guild.text_channels
+        )
         if not quotes_channel:
-            await interaction.followup.send("Couldn't find a channel named `quotes`.")
-            return
+            return await interaction.followup.send("Couldn't find a `#quotes` channel.")
 
-        messages = [msg async for msg in quotes_channel.history(limit=None)]
-        quotes = []
+        messages = [m async for m in quotes_channel.history(limit=None)]
+        quotes   = []
 
         for msg in messages:
-            # Match all quoted parts with optional mention
-            matches = re.findall(r'[“"‘\'](.+?)[”"’\']\s*(?:-*\s*)?(<@!?\d+>)?', msg.content, re.DOTALL)
-
-            for text, mention in matches:
+            for text, mention in QUOTE_PATTERN.findall(msg.content):
                 text = text.strip()
                 if not text:
                     continue
-
-                if msg.mentions:
-                    user = msg.mentions[0]
-                else:
-                    user = msg.author
-
+                user = msg.mentions[0] if msg.mentions else msg.author
                 quotes.append((text, user, msg))
 
         if not quotes:
-            await interaction.followup.send("No valid quotes found in #quotes.")
-            return
+            return await interaction.followup.send("No valid quotes found in the quotes channel.")
 
         quote_text, user, msg = random.choice(quotes)
 
-        avatar_url = user.display_avatar.replace(size=512).url
+        # fetch avatar 
         async with aiohttp.ClientSession() as session:
-            async with session.get(avatar_url) as resp:
+            async with session.get(user.display_avatar.replace(size=512).url) as resp:
                 avatar_bytes = await resp.read()
 
-        # Image size
+        # compose image 
         size = 800
         half = size // 2
 
-        # Load and resize avatar
         avatar_img = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA").resize((size, size))
 
+        # Left-to-right gradient mask: dark on left, transparent on right side reversed
         gradient = Image.new("L", (size, 1))
         for x in range(size):
             alpha = int(255 * (x / half)) if x < half else 255
             gradient.putpixel((x, 0), alpha)
 
-        alpha_mask = gradient.resize((size, size))
+        alpha_mask    = gradient.resize((size, size))
         black_overlay = Image.new("RGBA", (size, size), (0, 0, 0, 255))
         black_overlay.putalpha(alpha_mask)
 
-        # Combine avatar + overlay
-        img = Image.alpha_composite(avatar_img, black_overlay)
-
-        # Draw text
+        img  = Image.alpha_composite(avatar_img, black_overlay)
         draw = ImageDraw.Draw(img)
 
-        def get_font():
-            if platform.system() == "Windows":
-                return ImageFont.truetype("arial.ttf", 32)
-            else:
-                return ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 32)
-
         try:
-            font = get_font()
-        except:
+            font = ImageFont.truetype(FONT_PATH, 32)
+        except OSError:
             font = ImageFont.load_default()
 
-        quote_full = f'"{quote_text}"'
-        author = f"– {user.display_name}"
+        wrapped      = textwrap.wrap(f'"{quote_text}"', width=20)
+        bbox         = draw.textbbox((0, 0), "A", font=font)
+        line_h       = (bbox[3] - bbox[1]) + 6
+        total_h      = len(wrapped) * line_h + 30
+        y            = (size - total_h) // 2
+        x            = half + 20
 
-        wrapped_lines = textwrap.wrap(quote_full, width=20)
+        for line in wrapped:
+            draw.text((x, y), line, font=font, fill="white")
+            y += line_h
 
-        bbox = draw.textbbox((0, 0), "A", font=font)
-        line_height = (bbox[3] - bbox[1]) + 6
-        author_spacing = 30
-        total_height = len(wrapped_lines) * line_height + author_spacing
-        y_start = (size - total_height) // 2
-        x_start = half + 20
+        draw.text((x, y + 10), f"– {user.display_name}", font=font, fill="white")
 
-
-        for i, line in enumerate(wrapped_lines):
-            y = y_start + i * line_height
-            draw.text((x_start, y), line, font=font, fill="white")
-
-
-        y = y_start + len(wrapped_lines) * line_height + 10
-        draw.text((x_start, y), author, font=font, fill="white")
-
-        # Save to buffer
-        buffer = io.BytesIO()
-        img.save(buffer, format="PNG")
-        buffer.seek(0)
-        file = discord.File(buffer, filename="quote.png")
+        # send
+        buf = io.BytesIO()
+        img.save(buf, format="PNG")
+        buf.seek(0)
 
         msg_url = f"https://discord.com/channels/{msg.guild.id}/{msg.channel.id}/{msg.id}"
+        await interaction.followup.send(
+            content=msg_url,
+            file=discord.File(buf, filename="quote.png")
+        )
 
-        await interaction.followup.send(content=f"{msg_url}", file=file)
 
 async def setup(client):
     await client.add_cog(Quote(client))

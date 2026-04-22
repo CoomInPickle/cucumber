@@ -11,7 +11,6 @@ class system(commands.Cog):
         bot_latency = round(self.client.latency * 1000)
         await interaction.response.send_message(f"Pong! {bot_latency} ms.", ephemeral=True)
 
-
     @app_commands.command(name="join", description="Join the voice channel.")
     async def join(self, interaction: discord.Interaction):
         channel = interaction.user.voice.channel if interaction.user.voice else None
