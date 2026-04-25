@@ -3,10 +3,11 @@ from discord import app_commands
 from discord.ext import commands
 import yt_dlp
 import asyncio
+import audioop
 import time
+import json
+import os
 from data.variables import Timestamp
-
-# FFmpeg / yt-dlp config 
 
 FFMPEG_OPTIONS = {
     'options': '-vn',
@@ -42,14 +43,132 @@ YTDL_FLAT_OPTIONS = {
 ytdl      = yt_dlp.YoutubeDL(YTDL_OPTIONS)
 ytdl_flat = yt_dlp.YoutubeDL(YTDL_FLAT_OPTIONS)
 
+EMOJI_PAUSE = "<:play_pause:1496237032538898574>"
+EMOJI_PLAY  = "<:play:1496534605245841549>"
+EMOJI_PREV  = "<:previous:1496237002230726666>"
+EMOJI_NEXT  = "<:next:1496237059940028437>"
+EMOJI_STOP  = "<:stop:1496536014620201235>"
 
-# Song────
+FRAME_SIZE    = 3840  # discord.py PCM frame size (20ms @ 48kHz stereo 16-bit)
+SETTINGS_PATH = "config/settings.json"
+
+_DEFAULT_SETTINGS = {
+    "defaults": {
+        "crossfade":  False,
+        "radio":      False,
+        "loop":       False,
+        "loop_queue": False,
+    },
+    "crossfade_duration": 6.0,
+}
+
+def _load_settings() -> dict:
+    if os.path.exists(SETTINGS_PATH):
+        try:
+            with open(SETTINGS_PATH) as f:
+                data = json.load(f)
+            # Fill in any missing keys from defaults so old config files still work
+            merged = dict(_DEFAULT_SETTINGS)
+            merged["defaults"] = {**_DEFAULT_SETTINGS["defaults"], **data.get("defaults", {})}
+            merged["crossfade_duration"] = data.get("crossfade_duration", _DEFAULT_SETTINGS["crossfade_duration"])
+            return merged
+        except Exception as e:
+            print(f"[Config] Failed to load settings.json: {e}, using defaults")
+    return dict(_DEFAULT_SETTINGS)
+
+# Loaded once at import time. The Music cog re-reads this on each GuildPlayer creation
+# so a restart picks up any changes.
+_SETTINGS = _load_settings()
+FADE_DURATION: float = _SETTINGS["crossfade_duration"]
+
+
+class MixedSource(discord.AudioSource):
+    """
+    Holds two audio sources and linearly crossfades from src_a to src_b
+    over FADE_DURATION seconds. Once the fade is complete it acts as src_b alone.
+
+    discord.py reads 20ms frames (3840 bytes of signed 16-bit stereo PCM).
+    We mix by scaling each frame's samples and summing them with audioop.add.
+    """
+
+    def __init__(self, src_a: discord.PCMVolumeTransformer,
+                 src_b: discord.PCMVolumeTransformer):
+        self.src_a   = src_a
+        self.src_b   = src_b
+        # How many frames make up the full fade window
+        self._total  = int(FADE_DURATION * 50)   # 50 frames per second
+        self._frame  = 0
+        self._done   = False   # True when src_a is fully faded out
+
+    def read(self) -> bytes:
+        if self._done:
+            return self.src_b.read()
+
+        self._frame += 1
+        progress = min(self._frame / self._total, 1.0)
+
+        # Scale factors: a fades from 1→0, b fades from 0→1
+        vol_a = 1.0 - progress
+        vol_b = progress
+
+        frame_a = self.src_a.read()
+        frame_b = self.src_b.read()
+
+        if not frame_a and not frame_b:
+            return b""
+
+        # Pad whichever ran short
+        size = max(len(frame_a), len(frame_b)) or FRAME_SIZE
+        frame_a = frame_a.ljust(size, b'\x00')
+        frame_b = frame_b.ljust(size, b'\x00')
+
+        # Apply per-source volume scaling then mix
+        scaled_a = audioop.mul(frame_a, 2, vol_a)
+        scaled_b = audioop.mul(frame_b, 2, vol_b)
+        mixed    = audioop.add(scaled_a, scaled_b, 2)
+
+        if progress >= 1.0:
+            self._done = True
+            self.src_a.cleanup()
+
+        return mixed
+
+    def is_opus(self) -> bool:
+        return False
+
+    def cleanup(self):
+        try:
+            self.src_a.cleanup()
+        except Exception:
+            pass
+        try:
+            self.src_b.cleanup()
+        except Exception:
+            pass
+
+
+import re as _re
+
+_TITLE_NOISE = _re.compile(
+    r'\s*[\(\[（【][^\)\]）】]*?'
+    r'(?:official|lyrics?|audio|video|hd|hq|4k|remaster|explicit|clean|live|acoustic|radio\s*edit|visuali[sz]er|\d{4})'
+    r'[^\)\]）】]*?'
+    r'[\)\]）】]',
+    _re.IGNORECASE
+)
+
+def _clean_title(raw: str) -> str:
+    title = _TITLE_NOISE.sub('', raw)
+    title = _re.sub(r'\s*-\s*Topic\s*$', '', title, flags=_re.IGNORECASE)
+    return title.strip(' -\u2013\u2014')
+
 
 class Song:
     __slots__ = ('title', 'url', 'webpage_url', 'thumbnail', 'duration', 'requester')
 
     def __init__(self, data: dict, requester=None):
-        self.title       = data.get('title', 'Unknown')
+        raw_title        = data.get('title', 'Unknown')
+        self.title       = _clean_title(raw_title)
         self.url         = data.get('url', '')
         self.webpage_url = data.get('webpage_url', data.get('url', ''))
         self.thumbnail   = data.get('thumbnail', '')
@@ -63,10 +182,71 @@ class Song:
 
     @classmethod
     async def resolve(cls, query: str, requester=None) -> 'Song':
-        data = await asyncio.to_thread(_extract_single, query)
-        if data is None:
+        is_url = query.startswith('http://') or query.startswith('https://')
+
+        if is_url:
+            # Direct URL — just resolve normally, no metadata enrichment needed
+            data = await asyncio.to_thread(_extract_single, query)
+            if data is None:
+                raise ValueError(f"Could not resolve: {query}")
+            return cls(data, requester)
+
+        # For text searches, fetch lyrics video (audio) and official video (metadata) in parallel.
+        # Lyrics videos have clean audio with no intros; official videos have the right
+        # title, thumbnail, and album art.
+        lyrics_query   = f"{query} lyrics"
+        official_query = f"{query} official"
+
+        lyrics_data, official_data = await asyncio.gather(
+            asyncio.to_thread(_extract_single, lyrics_query),
+            asyncio.to_thread(_extract_single, official_query),
+            return_exceptions=True
+        )
+
+        # If both failed we have nothing
+        if lyrics_data is None and official_data is None:
             raise ValueError(f"Could not resolve: {query}")
-        return cls(data, requester)
+
+        # Use lyrics data as the base (has the audio URL we want)
+        base = lyrics_data if lyrics_data and not isinstance(lyrics_data, Exception) else official_data
+        if isinstance(base, Exception) or base is None:
+            raise ValueError(f"Could not resolve: {query}")
+
+        # Overlay title and thumbnail from the official result if we got one
+        if (official_data
+                and not isinstance(official_data, Exception)
+                and lyrics_data
+                and not isinstance(lyrics_data, Exception)):
+            base = dict(base)   # don't mutate the original
+            base['title']     = official_data.get('title', base.get('title', 'Unknown'))
+            base['thumbnail'] = _best_thumbnail(official_data) or base.get('thumbnail', '')
+
+        return cls(base, requester)
+
+
+def _best_thumbnail(data: dict) -> str:
+    """Pick the highest-resolution thumbnail from a yt-dlp info dict."""
+    thumbs = data.get('thumbnails') or []
+
+    if thumbs:
+        # Sort by resolution (width * height), falling back to 0 if missing
+        def res(t):
+            return (t.get('width') or 0) * (t.get('height') or 0)
+
+        with_url = [t for t in thumbs if t.get('url')]
+        if with_url:
+            best = max(with_url, key=res)
+            url = best['url']
+            # YouTube often has a maxresdefault that isn't in the thumbnails list —
+            # swap it in if the URL looks like a YouTube video thumbnail
+            import re as _r
+            yt_vid = _r.search(r'/vi(?:_webp)?/([A-Za-z0-9_-]{11})/', url)
+            if yt_vid:
+                maxres = f"https://i.ytimg.com/vi/{yt_vid.group(1)}/maxresdefault.jpg"
+                return maxres
+            return url
+
+    return data.get('thumbnail', '')
 
 
 def _extract_single(query: str) -> dict | None:
@@ -79,7 +259,7 @@ def _extract_single(query: str) -> dict | None:
             return entries[0] if entries else None
         return info
     except Exception as e:
-        print(f"[yt-dlp] extract error: {e}")
+        print(f"{Timestamp()} [yt-dlp] extract error: {e}")
         return None
 
 
@@ -91,26 +271,33 @@ async def _extract_playlist_flat(url: str) -> list[dict]:
         entries = info.get('entries', [info])
         return [e for e in entries if e]
     except Exception as e:
-        print(f"[yt-dlp] playlist extract error: {e}")
+        print(f"{Timestamp()} [yt-dlp] playlist extract error: {e}")
         return []
 
 
-# Guild state ─
-
 class GuildPlayer:
     def __init__(self):
+        cfg = _load_settings()   # re-read on each player creation so restarts pick up changes
+        d   = cfg.get("defaults", {})
+
         self.queue:         list[Song]                 = []
         self.history:       list[Song]                 = []
         self.current:       Song | None                = None
         self.text_channel:  discord.TextChannel | None = None
         self.embed_msg:     discord.Message | None     = None
-        self.loop:          bool  = False
-        self.loop_queue:    bool  = False
-        self.radio:         bool  = False
-        self.radio_preview: list[Song] = []   # up to 2 preloaded radio songs
+        self.loop:          bool  = bool(d.get("loop",       False))
+        self.loop_queue:    bool  = bool(d.get("loop_queue", False))
+        self.radio:         bool  = bool(d.get("radio",      False))
+        self.radio_preview: list[Song] = []
         self.start_time:    float = 0.0
         self.eq_swapping:   bool  = False
-        self.paused:        bool  = False     # track pause state for button emoji
+        self.paused:        bool  = False
+        self.fade:          bool  = bool(d.get("crossfade",  False))
+        self.fading:        bool  = False
+        self.next_song:     Song | None = None
+        self._fade_task:    asyncio.Task | None = None
+        self.queue_msg:     discord.Message | None = None
+        self._last_skip:    float = 0.0
 
     @property
     def elapsed(self) -> int:
@@ -127,15 +314,14 @@ class GuildPlayer:
         self.start_time  = 0.0
         self.eq_swapping = False
         self.paused      = False
-
-
-# UI─
-
-EMOJI_PAUSE  = "<:play_pause:1496237032538898574>"
-EMOJI_PLAY   = "<:play:1496534605245841549>"
-EMOJI_PREV   = "<:previous:1496237002230726666>"
-EMOJI_NEXT   = "<:next:1496237059940028437>"
-EMOJI_STOP   = "<:stop:1496536014620201235>"
+        self.fade        = False
+        self.fading      = False
+        self.next_song   = None
+        if self._fade_task:
+            self._fade_task.cancel()
+        self._fade_task = None
+        self.queue_msg  = None
+        self._last_skip = 0.0
 
 
 class MusicView(discord.ui.View):
@@ -143,7 +329,6 @@ class MusicView(discord.ui.View):
         super().__init__(timeout=None)
         self.cog      = cog
         self.guild_id = guild_id
-        # Set the correct play/pause emoji on creation
         self.pause_resume_button.emoji = discord.PartialEmoji.from_str(
             EMOJI_PLAY if paused else EMOJI_PAUSE
         )
@@ -165,8 +350,6 @@ class MusicView(discord.ui.View):
         await self.cog.do_stop(interaction)
 
 
-# Cog
-
 class Music(commands.Cog):
     def __init__(self, client: commands.Bot):
         self.client   = client
@@ -176,8 +359,6 @@ class Music(commands.Cog):
         if guild_id not in self._players:
             self._players[guild_id] = GuildPlayer()
         return self._players[guild_id]
-
-    # ── embed
 
     def _build_embed(self, song: Song, gp: GuildPlayer, vc: discord.VoiceClient) -> discord.Embed:
         title = "Now Playing"
@@ -222,40 +403,113 @@ class Music(commands.Cog):
                 pass
             gp.embed_msg = None
 
-    # playback
+    def _make_raw_source(self, song: Song, eq_filter: str = "") -> discord.PCMVolumeTransformer:
+        options = f"-vn -af {eq_filter}" if eq_filter else "-vn"
+        return discord.PCMVolumeTransformer(
+            discord.FFmpegPCMAudio(
+                song.url,
+                before_options=FFMPEG_OPTIONS['before_options'],
+                options=options
+            ),
+            volume=0.5
+        )
 
-    async def _play_song(self, vc: discord.VoiceClient, song: Song, guild_id: int):
+    async def _play_song(self, vc: discord.VoiceClient, song: Song, guild_id: int,
+                          crossfade_from: discord.PCMVolumeTransformer | None = None):
         gp            = self.get_player(guild_id)
         gp.current    = song
         gp.start_time = time.time()
         gp.paused     = False
+        gp.fading     = False
+        gp.next_song  = None
 
         eq_cog    = self.client.get_cog("Equalizer")
         eq_filter = eq_cog.eq_settings.get(guild_id, "") if eq_cog else ""
 
-        opts = dict(FFMPEG_OPTIONS)
-        if eq_filter:
-            opts['options'] = f"-vn -af {eq_filter}"
+        new_src = self._make_raw_source(song, eq_filter)
 
-        source = discord.PCMVolumeTransformer(
-            discord.FFmpegPCMAudio(song.url, **opts),
-            volume=0.5
-        )
+        if crossfade_from is not None:
+            # Wrap both sources in the mixer — no vc.stop() needed
+            source = MixedSource(crossfade_from, new_src)
+        else:
+            source = new_src
 
         def after_play(err):
             if err:
-                print(f"[Music] Playback error: {err}")
+                print(f"{Timestamp()} [Music] Playback error: {err}")
             self.client.loop.create_task(self._advance(vc, guild_id))
 
-        vc.play(source, after=after_play)
+        if crossfade_from is not None and vc.is_playing():
+            # Replace the source in-place — discord.py supports this via vc.source assignment
+            vc.source = source
+        else:
+            vc.play(source, after=after_play)
+
         await self._send_now_playing(guild_id, song, vc)
         print(f"{Timestamp()} [{vc.guild.name}] Now playing: {song.title}")
 
-        # Trigger background radio preload as soon as a song starts
         if gp.radio and len(gp.radio_preview) < 2:
             radio_cog = self.client.get_cog("Radio")
             if radio_cog:
                 asyncio.create_task(radio_cog.preload(guild_id, song))
+
+        # Schedule the crossfade trigger if fade is on and duration is known
+        if gp.fade and song.duration > FADE_DURATION + 2:
+            trigger_at = song.duration - FADE_DURATION
+            if gp._fade_task:
+                gp._fade_task.cancel()
+            gp._fade_task = asyncio.create_task(
+                self._trigger_crossfade(vc, guild_id, trigger_at)
+            )
+
+    async def _trigger_crossfade(self, vc: discord.VoiceClient, guild_id: int, wait: float):
+        """
+        Waits until (duration - FADE_DURATION) seconds have elapsed, then resolves
+        the next song and starts the MixedSource crossfade while the current song
+        is still playing.
+        """
+        await asyncio.sleep(wait)
+
+        gp = self.get_player(guild_id)
+        if not vc.is_connected() or not vc.is_playing() or gp.fading:
+            return
+
+        # Work out what comes next (same logic as _advance, without consuming yet)
+        next_song = None
+        if gp.queue:
+            next_song = gp.queue[0]
+        elif gp.radio and gp.radio_preview:
+            next_song = gp.radio_preview[0]
+
+        if not next_song:
+            return
+
+        # Make sure the next song has a resolved stream URL
+        if not next_song.url:
+            return
+
+        gp.fading    = True
+        gp.next_song = next_song
+
+        # Hold a reference to the outgoing source before we swap
+        outgoing = vc.source
+
+        # Consume the next song from whichever list it came from
+        if gp.queue and gp.queue[0] is next_song:
+            gp.queue.pop(0)
+        elif gp.radio and gp.radio_preview and gp.radio_preview[0] is next_song:
+            gp.radio_preview.pop(0)
+
+        # Push current into history
+        if gp.current:
+            gp.history.append(gp.current)
+            if len(gp.history) > 50:
+                gp.history.pop(0)
+            if gp.loop_queue:
+                gp.queue.append(gp.current)
+
+        # Start the crossfade — this replaces the source without stopping playback
+        await self._play_song(vc, next_song, guild_id, crossfade_from=outgoing)
 
     async def _advance(self, vc: discord.VoiceClient, guild_id: int):
         if not vc.is_connected():
@@ -263,6 +517,16 @@ class Music(commands.Cog):
         gp = self.get_player(guild_id)
         if gp.eq_swapping:
             return
+
+        # If a crossfade already handled the transition, _advance is a no-op
+        if gp.fading:
+            gp.fading    = False
+            gp.next_song = None
+            return
+
+        if gp._fade_task and not gp._fade_task.done():
+            gp._fade_task.cancel()
+            gp._fade_task = None
 
         current = gp.current
 
@@ -272,7 +536,7 @@ class Music(commands.Cog):
                     fresh = await Song.resolve(current.webpage_url, current.requester)
                     await self._play_song(vc, fresh, guild_id)
                 except Exception as e:
-                    print(f"[Music] Loop re-resolve failed: {e}")
+                    print(f"{Timestamp()} [Music] Loop re-resolve failed: {e}")
                 return
 
             gp.history.append(current)
@@ -282,22 +546,18 @@ class Music(commands.Cog):
             if gp.loop_queue:
                 gp.queue.append(current)
 
-        # Normal queue first
         if gp.queue:
             next_song = gp.queue.pop(0)
             await self._play_song(vc, next_song, guild_id)
             return
 
-        # Queue empty — use radio preview if available
         if gp.radio:
             radio_cog = self.client.get_cog("Radio")
             if radio_cog:
-                # Pop from preloaded preview, or fetch on the spot as fallback
                 if gp.radio_preview:
                     next_song = gp.radio_preview.pop(0)
                 else:
                     next_song = await radio_cog.fetch_next(guild_id, current)
-
                 if next_song:
                     await self._play_song(vc, next_song, guild_id)
                     return
@@ -335,8 +595,6 @@ class Music(commands.Cog):
                 pass
             await asyncio.sleep(0.3)
 
-    # voice events
-
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before, after):
         vc = member.guild.voice_client
@@ -345,15 +603,11 @@ class Music(commands.Cog):
             if vc.is_connected() and len(vc.channel.members) == 1:
                 await self._cleanup(vc, member.guild.id)
 
-    # button actions
-
-    async def toggle_pause_resume(self, interaction: discord.Interaction,
-                                   btn: discord.ui.Button):
+    async def toggle_pause_resume(self, interaction: discord.Interaction, btn: discord.ui.Button):
         vc = interaction.guild.voice_client
         gp = self.get_player(interaction.guild.id)
         if not vc:
             return await interaction.response.send_message("Not in a voice channel.", ephemeral=True)
-
         if vc.is_playing():
             vc.pause()
             gp.paused = True
@@ -364,18 +618,29 @@ class Music(commands.Cog):
             btn.emoji = discord.PartialEmoji.from_str(EMOJI_PAUSE)
         else:
             return await interaction.response.send_message("Nothing is playing.", ephemeral=True)
-
         await interaction.response.edit_message(view=btn.view)
 
     async def do_skip(self, interaction: discord.Interaction):
         vc = interaction.guild.voice_client
         gp = self.get_player(interaction.guild.id)
         if not vc or not (vc.is_playing() or vc.is_paused()):
-            # If radio is on and nothing is queued yet, don't say "nothing to skip"
             if gp.radio:
                 return await interaction.response.send_message(
-                    "Radio is loading the next song…", ephemeral=True)
+                    "Radio is loading the next song.", ephemeral=True)
             return await interaction.response.send_message("Nothing to skip.", ephemeral=True)
+        # When radio is on and the preview is empty the next song needs to be fetched first.
+        # Rate-limit skips to avoid stacking requests and give a friendly message.
+        if gp.radio and not gp.queue and not gp.radio_preview:
+            now = time.time()
+            if now - gp._last_skip < 12:
+                return await interaction.response.send_message(
+                    "Woah, slow down there, I can't DJ faster than that.", ephemeral=True)
+        gp._last_skip = time.time()
+        # Cancel any in-progress fade so skip feels instant
+        if gp._fade_task and not gp._fade_task.done():
+            gp._fade_task.cancel()
+            gp._fade_task = None
+        gp.fading = False
         vc.stop()
         await interaction.response.defer()
 
@@ -389,6 +654,10 @@ class Music(commands.Cog):
             gp.queue.insert(0, gp.current)
         gp.queue.insert(0, prev)
         gp.current = None
+        if gp._fade_task and not gp._fade_task.done():
+            gp._fade_task.cancel()
+            gp._fade_task = None
+        gp.fading = False
         vc.stop()
         await interaction.response.defer()
 
@@ -397,12 +666,10 @@ class Music(commands.Cog):
         if not vc:
             return await interaction.response.send_message("Not connected.", ephemeral=True)
         await self._cleanup(vc, interaction.guild.id)
-        await interaction.response.send_message("👋 Stopped.", ephemeral=True)
+        await interaction.response.send_message("👋 Cya Later.")
 
-    # slash commands
-
-    @app_commands.command(name="play", description="Play a song or YouTube playlist from a URL or search.")
-    @app_commands.describe(query="URL or search term")
+    @app_commands.command(name="play", description="Play a song, album, or playlist from a URL or search.")
+    @app_commands.describe(query="URL, album name, or search term")
     async def play(self, interaction: discord.Interaction, query: str):
         if not interaction.user.voice:
             return await interaction.response.send_message("Join a voice channel first.", ephemeral=True)
@@ -421,7 +688,15 @@ class Music(commands.Cog):
 
         gp.text_channel = interaction.channel
 
-        flat = await _extract_playlist_flat(query)
+        is_url = query.startswith('http://') or query.startswith('https://')
+        flat   = await _extract_playlist_flat(query)
+
+        # For text queries that resolve to a single track, try album search as fallback
+        if len(flat) <= 1 and not is_url:
+            album_flat = await _extract_playlist_flat(f"ytsearch1:{query} full album")
+            if len(album_flat) > 1:
+                flat = album_flat
+
         is_playlist = len(flat) > 1
 
         if is_playlist:
@@ -466,10 +741,20 @@ class Music(commands.Cog):
         gp = self.get_player(interaction.guild.id)
         if not vc or not (vc.is_playing() or vc.is_paused()):
             if gp.radio:
-                return await interaction.response.send_message("Radio is loading the next song…", ephemeral=True)
+                return await interaction.response.send_message("Radio is loading the next song.", ephemeral=True)
             return await interaction.response.send_message("Nothing to skip.", ephemeral=True)
+        if gp.radio and not gp.queue and not gp.radio_preview:
+            now = time.time()
+            if now - gp._last_skip < 12:
+                return await interaction.response.send_message(
+                    "Woah, slow down there, I can't DJ faster than that.", ephemeral=True)
+        gp._last_skip = time.time()
+        if gp._fade_task and not gp._fade_task.done():
+            gp._fade_task.cancel()
+            gp._fade_task = None
+        gp.fading = False
         vc.stop()
-        await interaction.response.send_message("⏭ Skipped.", ephemeral=True)
+        await interaction.response.send_message("Skipped.", ephemeral=True)
 
     @app_commands.command(name="back", description="Go back to the previous song.")
     async def back(self, interaction: discord.Interaction):
@@ -481,7 +766,7 @@ class Music(commands.Cog):
         if not vc:
             return await interaction.response.send_message("Not connected.", ephemeral=True)
         await self._cleanup(vc, interaction.guild.id)
-        await interaction.response.send_message("👋 Left.", ephemeral=True)
+        await interaction.response.send_message("👋 Cya Later.")
 
     @app_commands.command(name="nowplaying", description="Show what's currently playing.")
     async def nowplaying(self, interaction: discord.Interaction):
@@ -519,6 +804,13 @@ class Music(commands.Cog):
         await interaction.response.send_message(
             f"Queue loop {'enabled' if gp.loop_queue else 'disabled'}.", ephemeral=True)
 
+    @app_commands.command(name="fade", description="Toggle crossfade between songs.")
+    async def fade_cmd(self, interaction: discord.Interaction):
+        gp = self.get_player(interaction.guild.id)
+        gp.fade = not gp.fade
+        await interaction.response.send_message(
+            f"Crossfade {'enabled' if gp.fade else 'disabled'}.", ephemeral=True)
+
     @app_commands.command(name="remove", description="Remove a song from the queue by position.")
     @app_commands.describe(position="Position in the queue (1 = next up)")
     async def remove(self, interaction: discord.Interaction, position: int):
@@ -526,13 +818,13 @@ class Music(commands.Cog):
         if position < 1 or position > len(gp.queue):
             return await interaction.response.send_message("Invalid position.", ephemeral=True)
         removed = gp.queue.pop(position - 1)
-        await interaction.response.send_message(f"🗑 Removed **{removed.title}**.", ephemeral=True)
+        await interaction.response.send_message(f"Removed **{removed.title}**.", ephemeral=True)
 
     @app_commands.command(name="clearqueue", description="Clear the entire queue.")
     async def clearqueue(self, interaction: discord.Interaction):
         gp = self.get_player(interaction.guild.id)
         gp.queue.clear()
-        await interaction.response.send_message("🧹 Queue cleared.", ephemeral=True)
+        await interaction.response.send_message("Queue cleared.", ephemeral=True)
 
     @property
     def queues(self) -> dict:

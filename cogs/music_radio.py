@@ -153,7 +153,7 @@ class Radio(commands.Cog):
         guild_id = interaction.guild.id
         gp       = music_cog.get_player(guild_id)
 
-        # toggle OFF
+        # ── toggle OFF ──────────────────────────────────────────────────────
         if gp.radio and not query:
             gp.radio = False
             gp.radio_preview.clear()
@@ -164,9 +164,9 @@ class Radio(commands.Cog):
                     await gp.embed_msg.edit(embed=music_cog._build_embed(gp.current, gp, vc))
                 except discord.NotFound:
                     pass
-            return await interaction.response.send_message("Radio mode **off**.", ephemeral=True)
+            return await interaction.response.send_message("📻 Radio mode **off**.", ephemeral=True)
 
-        # toggle ON
+        # ── toggle ON ───────────────────────────────────────────────────────
         if not interaction.user.voice:
             return await interaction.response.send_message("Join a voice channel first.", ephemeral=True)
 

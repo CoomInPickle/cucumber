@@ -4,7 +4,6 @@ WORKDIR /app
 
 ENV PYTHONUNBUFFERED=1
 
-# Install system dependencies (including curl + unzip for Deno)
 RUN apt-get update && apt-get install -y \
     git \
     libffi-dev \
@@ -17,19 +16,19 @@ RUN apt-get update && apt-get install -y \
 
 # Install Deno
 RUN curl -fsSL https://deno.land/install.sh | sh
-
-# Add Deno to PATH
 ENV DENO_INSTALL="/root/.deno"
 ENV PATH="$DENO_INSTALL/bin:$PATH"
-
-# (Optional) Verify installation
 RUN deno --version
 
-# Install Python dependencies
 COPY requirements.txt /app/
 RUN pip install --no-cache-dir -U -r requirements.txt
 
-# Copy project files
 COPY . /app
 
-CMD ["python", "main.py"]
+# config_defaults holds the bundled defaults. The real config/ is a volume mount.
+# entrypoint.sh copies defaults into the volume on first run.
+RUN cp -r /app/config /app/config_defaults
+
+RUN chmod +x /app/entrypoint.sh
+
+CMD ["/app/entrypoint.sh"]

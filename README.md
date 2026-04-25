@@ -1,5 +1,5 @@
-# <p align="center"><strong>Cucumber Bot 🥒</strong></p>
-<hr>
+# Cucumber Bot
+
 <div align="center">
   <img src="https://img.shields.io/badge/language-Python-blue">
   <img src="https://img.shields.io/github/issues/CoomInPickle/cucumber">
@@ -7,11 +7,11 @@
   <img src="https://img.shields.io/github/last-commit/CoomInPickle/cucumber">
 </div>
 
-Cucumber is a personal Discord bot which I want to use for all kinds of things like music, since there is no good one that is reliable.  
-Also, I'm going to use it for other helpful stuff, but I'll decide on that later.
+Cucumber is a personal Discord bot built mainly for music, since there's no reliable free option that actually works. Also has some other stuff I find useful.
 
-## Installation using Docker Compose  
-The Docker container is tested on Ubuntu. I can't guarantee it works on anything else.
+## Installation using Docker Compose
+
+Tested on Ubuntu. No guarantees for anything else.
 
 ```yaml
 version: '3.8'
@@ -20,85 +20,120 @@ services:
     image: coominpickle/cucumber:latest
     container_name: cucumber-discord-bot
     environment:
-      - BOT_TOKEN=${BOT_TOKEN}  #Bot token from dev portal
-      - APPLICATION_ID=${APPLICATION_ID}  #Application ID	from dev portal
+      - BOT_TOKEN=${BOT_TOKEN}
+      - APPLICATION_ID=${APPLICATION_ID}
+    volumes:
+      - ./config:/app/config
     restart: unless-stopped
 ```
-### Disabling Cogs (Features)
-Cogs (Features) can be disabled by adding ```####_cog = false``` to the environment variables.
-Replace the #### with the respective name of the cog. Keep in mind that disabling certain cogs can break stuff.
-Its mainly meant to disable the Quotes cog and the Instagram cog.
-Here is a list of all available cogs:
 
-| Name            | note |
-|-----------------|------|
-| fun             | -    |
-| instagram       | -    |
-| music           | -    |
-| music_eq        | -    |
-| music_queue     | -    |
-| quote           | -    |
-| system          | -    |
+On first start, the bot automatically copies the default config files (including `eq_presets.json`) into your mounted `./config` folder if they're not already there. So just run it and you're good.
 
+### Cookies (optional but recommended)
 
-## To-Do List
+Without cookies, some YouTube videos (age-restricted, region-locked, etc.) will fail. To add them:
 
-- [ ] ~~Add crossfade between songs~~
-- [x] Add music playback feature  
-- [x] ~~Create dynamic /help command~~ (help is already in the Discord /menu)  
-- [ ] /queue command to list queue or clear, and maybe more  
-- [x] Docker compose deployable  
-- [x] !update command which will make the bot pull new files from GitHub (image automatically updates on new push)  
-- [x] ~~Adjustable music quality~~ (always trying to get the best quality, anything else is pointless)  
-- [ ] ~~Function to make a dedicated "console chat" for the bot, either through DM from only x user or only in the server x channel y.  
-      This can maybe include logging but mainly certain commands like !sync and maybe stuff that changes permanently to the .env,
-      mainly because IDK how to do permission roles right now.~~
-- [x] Make embeds always the same length and maybe height, also change color to cucumber color.  
-- [ ] Stop stuttering when bot is searching for a song while playing (partially fixed and only happening when not using direct link)
-- [ ] Performance (it's good but could be better)
+1. Install the browser extension **Get cookies.txt LOCALLY** (available for Chrome and Firefox).
+2. Go to [youtube.com](https://youtube.com) while logged in.
+3. Click the extension and export cookies in **Netscape format**.
+4. Save the file as `cookies.txt` and place it in your mounted `./config` folder.
+
+The path inside the container is `config/cookies.txt`, which is what yt-dlp looks for automatically.
+
+If you don't want to use cookies at all, just don't add the file — the bot will still work for most content.
+
+### Disabling Cogs
+
+Cogs can be disabled by adding `<NAME>_COG=false` to your environment variables. Useful if you don't want the Instagram or Quotes features.
+
+| Name         | Note |
+|--------------|------|
+| fun          | -    |
+| instagram    | -    |
+| music        | -    |
+| music_eq     | -    |
+| music_queue  | -    |
+| music_radio  | -    |
+| quote        | -    |
+| system       | -    |
+
+## Music
+
+`/play` plays a song, playlist, or album. You can paste a YouTube/playlist URL or just search by name — album searches work too, e.g. `/play Dark Side of the Moon`. The first track starts immediately and the rest load in the background.
+
+`/skip` — skip current song  
+`/back` — go back to previous song  
+`/queue` — show the queue. If radio mode is on, preloaded radio songs show in a separate section at the bottom.  
+`/nowplaying` — show what's playing  
+`/loop` — loop current song  
+`/loopqueue` — loop the whole queue  
+`/remove <position>` — remove a song from the queue  
+`/clearqueue` — clear the queue  
+`/leave` — stop and disconnect  
+
+The player embed has four buttons: back, play/pause, skip, and a red stop button that disconnects the bot.
+
+### Radio
+
+`/radio` toggles radio mode on and off. When on, the bot automatically continues playing related songs when the queue runs out — it doesn't spam your queue, it just picks the next song when needed. Two songs are preloaded in the background so transitions are smooth.
+
+You can also seed the radio with a specific song: `/radio <song name>`.
+
+Radio mode is shown in the now-playing embed and in `/queue`. Enabling loop or queue loop disables radio automatically.
+
+### Equalizer
+
+`/eq` — apply a preset filter (bassboost, nightcore, vaporwave, 8d, slowreverb)  
+`/eq_custom` — manual controls for bass, treble, speed, pitch, reverb  
+`/eq_clear` — reset to flat  
+
+Presets are customizable via the `eq_presets.json` file in your config folder. The file comes with a few examples to copy.
+
+| Filter       | Example                               | Effect                  |
+|--------------|---------------------------------------|-------------------------|
+| Bass Boost   | `bass=g=15`                           | Boosts bass             |
+| Treble Boost | `treble=g=5`                          | Boosts highs            |
+| Speed Up     | `atempo=1.25`                         | Speeds up audio         |
+| Slow Down    | `atempo=0.8`                          | Slows down audio        |
+| Pitch Up     | `asetrate=48000*1.25,aresample=48000` | Raises pitch            |
+| Pitch Down   | `asetrate=48000*0.8,aresample=48000`  | Lowers pitch            |
+| 8D           | `apulsator=hz=0.09`                   | Panning effect          |
+| Echo/Reverb  | `aecho=0.8:0.9:1000:0.3`             | Adds echo               |
+| Lowpass      | `lowpass=f=3000`                      | Muffles highs           |
+| Highpass     | `highpass=f=2000`                     | Removes lows            |
+
+### Crossfade
+
+`/fade` toggles crossfade between songs. When enabled, the current song fades out in the last few seconds and the next one starts immediately — similar to how Spotify handles it.
 
 ## Queue system
-/play either plays a song or adds it to the queue. /queue shows the current queue. Thats all
 
-## Equalizer
-Apply real-time audio filters to currently playing songs using ```/eq```.
-Filters are customizable via the eq_presets.json file. The file come pre-loaded with a few presets to apply or use as examples to create custom ones.
+`/play` either plays a song or adds it to the queue. `/queue` shows what's in it with pagination. When radio mode is on, the preloaded upcoming radio songs are shown in a separate section.
 
 ## Quotes
-The quotes feature enabled running the /quote command makes the bot search for a channel containing the word `quote` and searches for a 
-quote within that channel to represent it on an image with the users pfp. For the bot to find a quote the quote must be formatted
-like this: `"quote here" @user`, anything else will be ignored.
-With the environment variable `QUOTE_COG = true` the feature can either be enabled or disabled.
+
+`/quote` picks a random quote from any channel with "quote" in the name and renders it as an image with the user's avatar. Quotes need to be formatted like `"quote here" @user`, anything else is ignored.
+
+Can be enabled/disabled with `QUOTE_COG=true/false`.
+
+## Instagram
+
+Automatically detects Instagram links, deletes the original message, and re-posts the media as an upload so it embeds properly. Supports reels, photos, and carousels (up to 4 images/videos at once). Files over 24 MB are skipped.
+
+Can be enabled/disabled with `INSTAGRAM_COG=true/false`.
 
 ## Fun
-The fun feature adds random stuff:
-- Joins VC with people randomly and plays /sounds/hi.mp3
 
-## Instagram thing
-The Instagramm feature deletes any Instagram link sent and sends the post as an actual video. Cause clicking a link and accepting cookies is annoying :)
-
-## Avalable FFmpeg filters for the EQ:
-| Filter Type  | Filter Code Example                   | Effect                    |
-|--------------|---------------------------------------|---------------------------|
-| Bass Boost   | `bass=g=15`                           | Boosts bass frequencies   |
-| Treble Boost | `treble=g=5`                          | Boosts high frequencies   |
-| Speed Up     | `atempo=1.25`                         | Speeds up audio           |
-| Slow Down    | `atempo=0.8`                          | Slows down audio          |
-| Pitch Up     | `asetrate=48000*1.25,aresample=48000` | Raises pitch              |
-| Pitch Down   | `asetrate=48000*0.8,aresample=48000`  | Lowers pitch              |
-| 8D           | `apulsator=hz=0.09`                   | Panning effect (3D audio) |
-| Echo/Reverb  | `aecho=0.8:0.9:1000:0.3`              | Adds echo                 |
-| Lowpass      | `lowpass=f=3000`                      | Muffles highs             |
-| Highpass     | `highpass=f=2000`                     | Removes lows              |
+Joins a random occupied voice channel every 2 hours with a ~4% chance and plays a sound. Skips if music is already playing.
 
 ## Issues / Suggestions
-[Here](https://github.com/CoomInPickle/cucumber/issues "cucumber/issues")
+
+[Here](https://github.com/CoomInPickle/cucumber/issues)
 
 ## Contributions
 
-Feel free to contribute to Cucumber, because IDK how much I can do or will do.  
-I'm always open to collaboration or help.
+Feel free to contribute. I'm always open to help or collaboration since I don't know how much I'll be able to keep up with this myself.
 
 ## License
 
-This project is licensed under the MIT License.
+MIT

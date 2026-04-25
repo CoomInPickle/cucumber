@@ -4,8 +4,14 @@ services:
     image: coominpickle/cucumber:latest
     container_name: cucumber-discord-bot
     environment:
-      - BOT_TOKEN=${BOT_TOKEN}  #Bot token from dev portal
-      - APPLICATION_ID=${APPLICATION_ID}  #Application ID	from dev portal
+      - BOT_TOKEN=${BOT_TOKEN}         # Bot token from dev portal
+      - APPLICATION_ID=${APPLICATION_ID} # Application ID from dev portal
+      # Disable cogs by setting them to false, e.g.:
+      # - INSTAGRAM_COG=false
+      # - QUOTE_COG=false
     volumes:
-      - ./config:/app/config  #Config folder for EQ and cookies
+      # Mount a local folder to /app/config so your settings persist across updates.
+      # On first start the bot will populate it with the default config files.
+      # Put your cookies.txt in this folder if needed — see README for instructions.
+      - ./config:/app/config
     restart: unless-stopped

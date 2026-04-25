@@ -6,8 +6,10 @@ import os
 import asyncio
 import time
 from typing import Optional
+from data.variables import Timestamp
 
 PRESETS_PATH = "config/eq_presets.json"
+
 
 class Equalizer(commands.Cog):
     def __init__(self, client: commands.Bot):
@@ -30,7 +32,7 @@ class Equalizer(commands.Cog):
         pitch:  Optional[float] = None,
         reverb: bool            = False,
     ) -> str:
-        if preset:
+        if preset is not None:
             return self.presets.get(preset, "")
         filters = []
         if bass   is not None: filters.append(f"bass=g={bass}")
@@ -40,7 +42,12 @@ class Equalizer(commands.Cog):
         if reverb:              filters.append("aecho=0.8:0.88:60:0.4")
         return ",".join(filters)
 
-    async def _apply_filter(self, interaction: discord.Interaction, ffmpeg_filter: str):
+    async def _apply_filter(self, interaction: discord.Interaction, ffmpeg_filter: str,
+                             label: str = ""):
+        """
+        Responds to the interaction immediately, then swaps the audio source.
+        Must be called before any other response has been sent.
+        """
         vc = interaction.guild.voice_client
         if not vc or not (vc.is_playing() or vc.is_paused()):
             return await interaction.response.send_message(
@@ -63,6 +70,13 @@ class Equalizer(commands.Cog):
             return await interaction.response.send_message(
                 "Track is almost over, EQ not applied.", ephemeral=True)
 
+        display = label or (ffmpeg_filter if ffmpeg_filter else "flat")
+
+        # Respond immediately — this keeps Discord happy within the 3s window.
+        # Everything after this is fire-and-forget from Discord's perspective.
+        await interaction.response.send_message(
+            f"EQ applied: `{display}`", ephemeral=True)
+
         self.eq_settings[guild_id] = ffmpeg_filter
 
         before_opts = (
@@ -77,31 +91,25 @@ class Equalizer(commands.Cog):
                 volume=0.5
             )
         except Exception as e:
-            return await interaction.response.send_message(f"FFmpeg error: {e}", ephemeral=True)
+            print(f"{Timestamp()} [EQ] FFmpeg error: {e}")
+            return
 
-        # Set flag BEFORE stop so _advance ignores the stop-triggered callback
         gp.eq_swapping = True
         vc.stop()
         await asyncio.sleep(0.05)
 
         def after_eq(err):
             if err:
-                print(f"[EQ] Playback error: {err}")
+                print(f"{Timestamp()} [EQ] Playback error: {err}")
             gp.eq_swapping = False
             self.client.loop.create_task(music_cog._advance(vc, guild_id))
 
-        # Adjust start_time so elapsed tracking stays correct after the seek
         gp.start_time = time.time() - elapsed
         vc.play(new_source, after=after_eq)
-
-        label = ffmpeg_filter or "flat"
-        await interaction.response.send_message(
-            f"🎚 EQ applied: `{label}` (resumed at {elapsed}s)")
+        print(f"{Timestamp()} [EQ] Applied filter '{display}' at {elapsed}s")
 
     async def clear_eq(self, guild_id: int):
         self.eq_settings.pop(guild_id, None)
-
-    # slash commands
 
     @app_commands.command(name="eq", description="Apply a preset EQ filter.")
     @app_commands.describe(preset="Choose a preset")
@@ -109,7 +117,9 @@ class Equalizer(commands.Cog):
         if preset not in self.presets:
             return await interaction.response.send_message(
                 f"Preset `{preset}` not found.", ephemeral=True)
-        await self._apply_filter(interaction, self.presets[preset])
+        ffmpeg_filter = self.presets[preset]
+        display = preset if ffmpeg_filter else "flat"
+        await self._apply_filter(interaction, ffmpeg_filter, label=display)
 
     @eq_preset.autocomplete("preset")
     async def eq_autocomplete(self, _: discord.Interaction, current: str):
@@ -133,8 +143,8 @@ class Equalizer(commands.Cog):
 
     @app_commands.command(name="eq_clear", description="Reset EQ to flat.")
     async def eq_clear(self, interaction: discord.Interaction):
-        await self._apply_filter(interaction, "")
         await self.clear_eq(interaction.guild.id)
+        await self._apply_filter(interaction, "", label="flat")
 
 
 async def setup(client):

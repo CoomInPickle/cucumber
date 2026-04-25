@@ -1,0 +1,9 @@
+{
+  "defaults": {
+    "crossfade":   true,
+    "radio":       false,
+    "loop":        false,
+    "loop_queue":  false
+  },
+  "crossfade_duration": 20.0
+}

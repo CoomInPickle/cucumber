@@ -41,10 +41,9 @@ class QueueView(discord.ui.View):
                 dur = f"`{song.duration_str()}`" if hasattr(song, 'duration_str') else ""
                 lines.append(f"`{i}.` {song.title} {dur}")
 
-        # Radio preview section
         if self.radio_preview:
             lines.append("")
-            lines.append("📻 **Up next from Radio:**")
+            lines.append("**Up Next from Radio:**")
             for i, song in enumerate(self.radio_preview, start=1):
                 dur = f"`{song.duration_str()}`" if hasattr(song, 'duration_str') else ""
                 lines.append(f"`~{i}.` {song.title} {dur}")
@@ -56,7 +55,7 @@ class QueueView(discord.ui.View):
         )
         footer = f"Page {self.page + 1}/{self.total_pages}  •  {len(self.queue)} song(s) queued"
         if self.radio_preview:
-            footer += "  •  📻 Radio on"
+            footer += "  •  Radio on"
         embed.set_footer(text=footer)
         return embed
 
@@ -83,18 +82,29 @@ class QueueCommands(commands.Cog):
         if not music_cog:
             return await interaction.response.send_message("Music cog not found.", ephemeral=True)
 
-        guild_id      = interaction.guild.id
-        gp            = music_cog.get_player(guild_id)
-        current_song  = gp.current
-        queue         = list(gp.queue)
+        guild_id     = interaction.guild.id
+        gp           = music_cog.get_player(guild_id)
+        current_song = gp.current
+        queue        = list(gp.queue)
         radio_preview = list(gp.radio_preview) if gp.radio else []
 
         if not current_song and not queue and not radio_preview:
             return await interaction.response.send_message(
                 "Nothing is playing and the queue is empty.", ephemeral=True)
 
+        # Delete the previous /queue message for this guild if there is one
+        if gp.queue_msg:
+            try:
+                await gp.queue_msg.delete()
+            except (discord.NotFound, discord.Forbidden):
+                pass
+            gp.queue_msg = None
+
         view = QueueView(queue, current_song, radio_preview)
         await interaction.response.send_message(embed=view.build_embed(), view=view)
+
+        # Store the new message so we can clean it up next time
+        gp.queue_msg = await interaction.original_response()
 
 
 async def setup(client):

@@ -3,6 +3,7 @@ from discord.ext import commands, tasks
 import asyncio
 import random
 import os
+from data.variables import Timestamp
 
 SOUND_PATH = "sounds/hi.mp3"
 
@@ -18,13 +19,13 @@ class Fun(commands.Cog):
 
     async def play_sound(self, voice_channel: discord.VoiceChannel):
         if not os.path.exists(SOUND_PATH):
-            print("[Fun] Sound file not found:", SOUND_PATH)
+            print(f"{Timestamp()} [Fun] Sound file not found:", SOUND_PATH)
             return
 
         # Don't interrupt the music bot
         for existing_vc in self.client.voice_clients:
             if existing_vc.guild == voice_channel.guild and existing_vc.is_playing():
-                print("[Fun] Music is playing — skipping.")
+                print(f"{Timestamp()} [Fun] Music is playing — skipping.")
                 return
 
         try:
@@ -33,7 +34,7 @@ class Fun(commands.Cog):
             # Already connected somewhere in this guild
             return
         except Exception as e:
-            print(f"[Fun] Could not connect: {e}")
+            print(f"{Timestamp()} [Fun] Could not connect: {e}")
             return
 
         vc.play(discord.FFmpegPCMAudio(SOUND_PATH, options="-filter:a volume=5.0"))
@@ -71,7 +72,7 @@ class Fun(commands.Cog):
             for vc in guild.voice_channels:
                 if len(vc.members) > 0:
                     self.active_vcs.add(vc)
-        print("[Fun] Background loop ready.")
+        print(f"{Timestamp()} [Fun] Background loop ready.")
 
 
 async def setup(client):
