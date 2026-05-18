@@ -22,6 +22,8 @@ services:
     environment:
       - BOT_TOKEN=${BOT_TOKEN}
       - APPLICATION_ID=${APPLICATION_ID}
+      - INSTAGRAM_USERNAME=${INSTAGRAM_USERNAME}
+      - INSTAGRAM_PASSWORD=${INSTAGRAM_PASSWORD}
     volumes:
       - ./config:/app/config
     restart: unless-stopped
@@ -118,7 +120,25 @@ Can be enabled/disabled with `QUOTE_COG=true/false`.
 
 ## Instagram
 
-Automatically detects Instagram links, deletes the original message, and re-posts the media as an upload so it embeds properly. Supports reels, photos, and carousels (up to 4 images/videos at once). Files over 24 MB are skipped.
+Automatically detects Instagram links, deletes the original message, and re-posts the media as an upload so it embeds properly. Supports reels, photos, and carousels (up to 10 items). Files over 24 MB are skipped.
+
+Photos with a music track attached are merged into a video with audio using ffmpeg before being sent.
+
+If media can't be downloaded, the bot falls back to reposting a clean version of the link with tracking params stripped.
+
+### Setup
+
+The bot tries two methods in order:
+
+1. **yt-dlp** — works for reels and some public content. Uses `config/cookies.txt` if present.
+2. **Instaloader** — fallback for photos and anything yt-dlp can't grab. Requires Instagram credentials set in your environment:
+
+```
+INSTAGRAM_USERNAME=your_username
+INSTAGRAM_PASSWORD=your_password
+```
+
+On startup the bot logs in and saves a session file to `config/ig_session_<username>`. On subsequent restarts it reuses that session instead of logging in again. Don't delete it.
 
 Can be enabled/disabled with `INSTAGRAM_COG=true/false`.
 
