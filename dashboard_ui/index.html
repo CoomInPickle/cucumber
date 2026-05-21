@@ -316,7 +316,7 @@ tr:last-child td { border-bottom: none; }
     <!-- COGS -->
     <div class="page" id="page-cogs">
       <div class="panel">
-        <div class="panel-head">Cog Manager <span id="cog-unsaved-notice" style="font-size:10px;color:var(--warn);font-weight:600;display:none">● unsaved changes — restart to apply</span></div>
+        <div class="panel-head">Cog Manager <span id="cog-unsaved-notice" style="font-size:10px;color:var(--warn);font-weight:600;display:none">● unsaved changes</span></div>
         <div class="panel-body">
           <div class="cog-grid" id="cog-grid"></div>
           <div class="actions">
@@ -612,7 +612,7 @@ async function saveCogs() {
   document.querySelectorAll('[data-cog]').forEach(cb => { changes[cb.dataset.cog] = cb.checked; });
   const ok = await apiPost('/api/cogs', changes);
   if (ok) {
-    toast('cog changes applied — some may need a restart');
+    toast('cog changes applied — some may need a restart and/or a sync ');
     cogsDirty = false;
     document.getElementById('cog-unsaved-notice').style.display = 'none';
     document.querySelectorAll('.cog-card').forEach(c => c.classList.remove('cog-unsaved'));
