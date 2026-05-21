@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>cucumber</title>
+<link rel="icon" type="image/png" href="https://cdn.discordapp.com/avatars/1196910555320045689/679eb46ff034ca1c5b83445d6d9af50f.png?size=64">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:      #0f0f0f;
+  --surface: #161616;
+  --card:    #1c1c1c;
+  --border:  #2c2c2c;
+  --accent:  #33c900;
+  --text:    #d8d8d8;
+  --sub:     #5a5a5a;
+  --danger:  #c93333;
+  --warn:    #e0a020;
+  --font:    'JetBrains Mono', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; line-height: 1.5; min-height: 100vh; display: flex; }
+
+/* sidebar */
+#sidebar { width: 216px; min-height: 100vh; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; }
+.logo { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: var(--accent); }
+.logo img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+#guild-selector { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+#guild-select { width: 100%; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; font-family: var(--font); font-size: 12px; outline: none; cursor: pointer; }
+#guild-select:focus { border-color: var(--accent); }
+nav { flex: 1; padding: 4px 0; overflow-y: auto; }
+.nav-group { padding: 12px 14px 3px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #383838; user-select: none; }
+nav a { display: block; padding: 7px 16px 7px 18px; color: #888; font-size: 12px; font-weight: 500; text-decoration: none; cursor: pointer; border-left: 2px solid transparent; transition: color .1s, background .1s; }
+nav a:hover { color: var(--text); background: rgba(255,255,255,.03); }
+nav a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(51,201,0,.05); }
+nav a.placeholder { opacity: .4; cursor: default; pointer-events: none; }
+.sidebar-foot { padding: 12px 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--sub); display: flex; align-items: center; gap: 7px; }
+.live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.2} }
+
+/* main */
+#main { margin-left: 216px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; height: 44px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
+.page-title { font-size: 13px; font-weight: 700; }
+.header-right { display: flex; align-items: center; gap: 10px; }
+.ping-badge { font-size: 11px; color: var(--sub); background: var(--card); border: 1px solid var(--border); border-radius: 4px; padding: 4px 10px; }
+.ping-badge b { color: var(--accent); }
+.restart-btn { background: transparent; border: 1px solid #444; border-radius: 4px; color: #888; font-family: var(--font); font-size: 11px; font-weight: 700; padding: 4px 11px; cursor: pointer; transition: all .15s; display: flex; align-items: center; gap: 6px; }
+.restart-btn:hover { border-color: var(--warn); color: var(--warn); }
+.restart-btn svg { width: 12px; height: 12px; }
+
+#content { padding: 22px; max-width: 860px; }
+#content.log-active { padding: 0; max-width: 100%; height: calc(100vh - 44px); display: flex; flex-direction: column; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* panels / cards */
+.stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.stat { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; }
+.stat-val { font-size: 26px; font-weight: 700; color: var(--accent); letter-spacing: -1px; }
+.stat-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--sub); margin-top: 3px; }
+.panel { background: var(--card); border: 1px solid var(--border); border-radius: 6px; margin-bottom: 16px; overflow: hidden; }
+.panel-head { padding: 11px 18px; border-bottom: 1px solid var(--border); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--sub); display: flex; align-items: center; justify-content: space-between; }
+.panel-body { padding: 18px; }
+
+.guild-row { display: flex; align-items: center; gap: 11px; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.guild-row:last-child { border-bottom: none; }
+.guild-icon { width: 32px; height: 32px; border-radius: 50%; background: var(--border); object-fit: cover; flex-shrink: 0; }
+.guild-name { font-size: 13px; font-weight: 600; }
+.guild-sub { font-size: 11px; color: var(--sub); }
+.guild-info { flex: 1; }
+.badge { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 3px; }
+.badge-on { background: rgba(51,201,0,.1); color: var(--accent); }
+.badge-off { background: transparent; color: var(--sub); border: 1px solid var(--border); }
+
+/* forms */
+.field { margin-bottom: 15px; }
+.field:last-child { margin-bottom: 0; }
+label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--sub); margin-bottom: 5px; }
+input[type="text"], select.fs { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--font); font-size: 12px; padding: 7px 10px; outline: none; }
+input[type="text"]:focus, select.fs:focus { border-color: var(--accent); }
+
+.row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+.row:last-child { border-bottom: none; }
+.row-label { font-size: 13px; font-weight: 500; }
+.row-sub { font-size: 11px; color: var(--sub); margin-top: 1px; }
+.tog { position: relative; width: 36px; height: 20px; flex-shrink: 0; }
+.tog input { opacity: 0; width: 0; height: 0; }
+.slider { position: absolute; inset: 0; background: var(--border); border-radius: 20px; cursor: pointer; transition: background .15s; }
+.slider::before { content: ''; position: absolute; width: 14px; height: 14px; left: 3px; top: 3px; background: #555; border-radius: 50%; transition: transform .15s, background .15s; }
+.tog input:checked + .slider { background: var(--accent); }
+.tog input:checked + .slider::before { transform: translateX(16px); background: #000; }
+.tog input:disabled + .slider { opacity: .35; cursor: not-allowed; }
+
+.range-row { display: flex; align-items: center; gap: 12px; }
+input[type="range"] { flex: 1; accent-color: var(--accent); }
+.range-val { font-size: 12px; font-weight: 700; color: var(--accent); min-width: 34px; text-align: right; }
+
+.btn { padding: 6px 14px; border-radius: 4px; border: none; font-family: var(--font); font-size: 12px; font-weight: 700; cursor: pointer; transition: filter .1s; }
+.btn-primary { background: var(--accent); color: #000; }
+.btn-primary:hover { filter: brightness(1.1); }
+.btn-ghost { background: transparent; color: var(--sub); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--text); color: var(--text); }
+.btn-sm { padding: 3px 9px; font-size: 11px; }
+.btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+.btn-danger:hover { background: var(--danger); color: #fff; }
+.actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 14px; border-top: 1px solid var(--border); margin-top: 16px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+.chip { display: flex; align-items: center; gap: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 2px 8px; font-size: 11px; }
+.chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.chip-x { cursor: pointer; color: var(--sub); margin-left: 2px; }
+.chip-x:hover { color: var(--danger); }
+.hint { font-size: 11px; color: var(--sub); margin-top: 5px; }
+
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--sub); padding: 0 0 9px; border-bottom: 1px solid var(--border); }
+td { padding: 8px 0; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 12px; }
+tr:last-child td { border-bottom: none; }
+.eq-filter { color: var(--sub); font-size: 11px; word-break: break-all; }
+.eq-add { display: grid; grid-template-columns: 150px 1fr auto; gap: 10px; align-items: flex-end; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+.cog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(188px, 1fr)); gap: 8px; }
+.cog-card { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 11px 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cog-name { font-size: 12px; font-weight: 600; }
+.cog-note { font-size: 10px; color: var(--sub); margin-top: 1px; }
+.cog-unsaved { border-color: var(--warn) !important; }
+
+/* log */
+#content.log-active { padding: 0; max-width: 100%; flex: 1; display: flex; flex-direction: column; }
+#log-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-radius: 0; border-left: none; border-right: none; border-bottom: none; margin: 0; }
+#log-panel .panel-head { flex-shrink: 0; }
+#log-box {
+  flex: 1;
+  padding: 14px 24px;
+  font-size: 11px;
+  line-height: 1.9;
+  overflow-y: scroll;
+  white-space: pre-wrap;
+  word-break: break-all;
+  background: #0a0a0a;
+  scrollbar-width: none;
+}
+#log-box::-webkit-scrollbar { display: none; }
+
+/* placeholder page */
+.placeholder-page { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64px 20px; color: var(--sub); text-align: center; }
+.placeholder-page .icon { font-size: 32px; margin-bottom: 14px; }
+.placeholder-page h2 { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+.placeholder-page p { font-size: 12px; max-width: 340px; }
+
+.empty { padding: 30px; text-align: center; color: var(--sub); }
+
+/* modal */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .15s; }
+.modal-overlay.show { opacity: 1; pointer-events: all; }
+.modal { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; width: 360px; }
+.modal h3 { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+.modal p { font-size: 12px; color: var(--sub); margin-bottom: 20px; line-height: 1.6; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+/* toast */
+#toast { position: fixed; bottom: 18px; right: 18px; background: var(--card); border: 1px solid var(--border); border-radius: 5px; padding: 9px 15px; font-size: 12px; font-weight: 600; opacity: 0; transform: translateY(6px); transition: all .18s; z-index: 999; pointer-events: none; }
+#toast.show { opacity: 1; transform: translateY(0); }
+#toast.ok  { border-color: var(--accent); color: var(--accent); }
+#toast.err { border-color: var(--danger); color: var(--danger); }
+#toast.warn { border-color: var(--warn); color: var(--warn); }
+</style>
+</head>
+<body>
+
+<aside id="sidebar">
+  <div class="logo">
+    <img src="https://cdn.discordapp.com/avatars/1196910555320045689/679eb46ff034ca1c5b83445d6d9af50f.png?size=1024" alt="logo">
+    cucumber
+  </div>
+  <div id="guild-selector">
+    <select id="guild-select" onchange="switchGuild(this.value)"><option value="">loading...</option></select>
+  </div>
+  <nav>
+    <div class="nav-group">Overview</div>
+    <a data-page="status"        onclick="nav('status')"        class="active">status</a>
+
+    <div class="nav-group">Server</div>
+    <a data-page="autorole"      onclick="nav('autorole')">auto role</a>
+    <a data-page="autoresponder" onclick="nav('autoresponder')">auto responder</a>
+    <a data-page="embeds"        onclick="nav('embeds')">embeds</a>
+
+    <div class="nav-group">Music</div>
+    <a data-page="music"         onclick="nav('music')">music settings</a>
+    <a data-page="eq"            onclick="nav('eq')">eq presets</a>
+
+    <div class="nav-group">Bot</div>
+    <a data-page="cogs"          onclick="nav('cogs')">cog manager</a>
+    <a data-page="log"           onclick="nav('log')">log</a>
+  </nav>
+  <div class="sidebar-foot"><div class="live-dot"></div><span id="foot-ping">connecting...</span></div>
+</aside>
+
+<div id="main">
+  <header>
+    <div class="page-title" id="page-title">status</div>
+    <div class="header-right">
+      <div class="ping-badge">ping <b id="hdr-ping">—</b></div>
+      <button class="restart-btn" onclick="confirmRestart()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M13.5 8A5.5 5.5 0 1 1 8 2.5" stroke-linecap="round"/>
+          <polyline points="8,1 11,4 8,7" fill="none"/>
+        </svg>
+        restart
+      </button>
+    </div>
+  </header>
+
+  <div id="content">
+
+    <!-- STATUS -->
+    <div class="page active" id="page-status">
+      <div class="stat-row">
+        <div class="stat"><div class="stat-val" id="s-guilds">—</div><div class="stat-lbl">Servers</div></div>
+        <div class="stat"><div class="stat-val" id="s-playing">—</div><div class="stat-lbl">Playing</div></div>
+        <div class="stat"><div class="stat-val" id="s-ping">—</div><div class="stat-lbl">Latency ms</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">Servers</div>
+        <div class="panel-body" id="guild-list"><div class="empty">loading...</div></div>
+      </div>
+    </div>
+
+    <!-- AUTOROLE -->
+    <div class="page" id="page-autorole">
+      <div class="panel">
+        <div class="panel-head">Auto Role</div>
+        <div class="panel-body">
+          <div class="row">
+            <div><div class="row-label">Enable</div><div class="row-sub">Assign roles to new members on join.</div></div>
+            <label class="tog"><input type="checkbox" id="ar-on"><span class="slider"></span></label>
+          </div>
+          <div class="field" style="margin-top:15px;">
+            <label>Roles</label>
+            <select id="ar-picker" class="fs" style="margin-bottom:7px;"><option value="">— pick a role —</option></select>
+            <div class="chips" id="ar-chips"></div>
+            <div class="hint">Stored in guilds/{id}/autorole.json — persists across restarts.</div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-ghost" onclick="loadAutorole()">Reset</button>
+            <button class="btn btn-primary" onclick="saveAutorole()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUTORESPONDER placeholder -->
+    <div class="page" id="page-autoresponder">
+      <div class="placeholder-page">
+        <div class="icon">💬</div>
+        <h2>Auto Responder</h2>
+        <p>Coming next — set trigger words/phrases and the bot's response. Stored per server, UI-only configuration.</p>
+      </div>
+    </div>
+
+    <!-- EMBEDS placeholder -->
+    <div class="page" id="page-embeds">
+      <div class="placeholder-page">
+        <div class="icon">📋</div>
+        <h2>Embed Manager</h2>
+        <p>Coming next — create rich Discord embeds with live preview, manage all embeds, send to any channel. Stored per server.</p>
+      </div>
+    </div>
+
+    <!-- MUSIC -->
+    <div class="page" id="page-music">
+      <div class="panel">
+        <div class="panel-head">Music Defaults</div>
+        <div class="panel-body">
+          <div class="row"><div><div class="row-label">Crossfade</div><div class="row-sub">Fade between tracks by default.</div></div><label class="tog"><input type="checkbox" id="mu-cf"><span class="slider"></span></label></div>
+          <div class="row"><div><div class="row-label">Radio</div><div class="row-sub">Auto-play related songs when queue ends.</div></div><label class="tog"><input type="checkbox" id="mu-radio"><span class="slider"></span></label></div>
+          <div class="row"><div><div class="row-label">Loop</div><div class="row-sub">Loop current song by default.</div></div><label class="tog"><input type="checkbox" id="mu-loop"><span class="slider"></span></label></div>
+          <div class="row"><div><div class="row-label">Loop Queue</div><div class="row-sub">Loop entire queue by default.</div></div><label class="tog"><input type="checkbox" id="mu-lq"><span class="slider"></span></label></div>
+          <div class="field" style="margin-top:16px;">
+            <label>Crossfade Duration</label>
+            <div class="range-row">
+              <input type="range" id="mu-dur" min="2" max="30" step="0.5" value="6" oninput="document.getElementById('mu-dur-v').textContent=this.value+'s'">
+              <div class="range-val" id="mu-dur-v">6s</div>
+            </div>
+          </div>
+          <div class="actions">
+            <button class="btn btn-ghost" onclick="loadMusic()">Reset</button>
+            <button class="btn btn-primary" onclick="saveMusic()">Save</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EQ -->
+    <div class="page" id="page-eq">
+      <div class="panel">
+        <div class="panel-head">EQ Presets <span style="font-size:10px;color:var(--sub);font-weight:400;text-transform:none;letter-spacing:0">config/eq_presets.json</span></div>
+        <div class="panel-body">
+          <table>
+            <thead><tr><th style="width:140px">Name</th><th>Filter</th><th style="width:70px"></th></tr></thead>
+            <tbody id="eq-rows"></tbody>
+          </table>
+          <div class="eq-add">
+            <div><label>Name</label><input type="text" id="eq-new-name" placeholder="mypreset"></div>
+            <div><label>FFmpeg Filter</label><input type="text" id="eq-new-filter" placeholder="bass=g=10,treble=g=3"></div>
+            <button class="btn btn-primary" onclick="addPreset()">Add</button>
+          </div>
+          <div class="hint" style="margin-top:10px;">Leave filter blank for flat. Changes hot-reload into the running bot.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COGS -->
+    <div class="page" id="page-cogs">
+      <div class="panel">
+        <div class="panel-head">Cog Manager <span id="cog-unsaved-notice" style="font-size:10px;color:var(--warn);font-weight:600;display:none">● unsaved changes — restart to apply</span></div>
+        <div class="panel-body">
+          <div class="cog-grid" id="cog-grid"></div>
+          <div class="actions">
+            <button class="btn btn-ghost" onclick="loadCogs()">Reset</button>
+            <button class="btn btn-primary" onclick="saveCogs()">Apply</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOG -->
+    <div class="page" id="page-log">
+      <div class="panel" id="log-panel">
+        <div class="panel-head">
+          Bot Log
+          <div style="display:flex;gap:8px;align-items:center">
+            <span id="log-count" style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:var(--sub)"></span>
+            <button class="btn btn-ghost btn-sm" onclick="clearLog()">clear</button>
+          </div>
+        </div>
+        <div id="log-box"><span style="color:var(--sub)">// waiting for output...</span></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- restart modal -->
+<div class="modal-overlay" id="restart-modal">
+  <div class="modal">
+    <h3>Restart Bot</h3>
+    <p id="restart-modal-msg">The bot will shut down cleanly. Docker will restart the container automatically (requires <code>restart: unless-stopped</code> in compose). Active voice connections will be dropped.</p>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" id="restart-confirm-btn" onclick="doRestart()">Restart</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const API = window.location.origin;
+let currentGuild = null;
+let allRoles = [];
+let arRoles = [];
+let eqPresets = {};
+let cogsDirty = false;
+let logInterval = null;
+let logAutoScroll = true;
+
+// ── toast ─────────────────────────────────────────────────────────────────
+function toast(msg, type = 'ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'show ' + type;
+  clearTimeout(el._t); el._t = setTimeout(() => { el.className = ''; }, 2800);
+}
+
+// ── navigation ────────────────────────────────────────────────────────────
+function nav(name) {
+  // if leaving cogs with unsaved changes, prompt restart
+  const activePage = document.querySelector('.page.active');
+  if (activePage && activePage.id === 'page-cogs' && cogsDirty && name !== 'cogs') {
+    showRestartModal('You have unsaved cog changes. Restart now to apply them, or cancel to stay.');
+    return;
+  }
+
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelector(`[data-page="${name}"]`).classList.add('active');
+  document.getElementById('content').classList.toggle('log-active', name === 'log');
+
+  const titles = {
+    status: 'status', autorole: 'auto role', autoresponder: 'auto responder',
+    embeds: 'embeds', music: 'music settings', eq: 'eq presets',
+    cogs: 'cog manager', log: 'log',
+  };
+  document.getElementById('page-title').textContent = titles[name] || name;
+
+  clearInterval(logInterval);
+  if (name === 'autorole')  loadAutorole();
+  if (name === 'music')     loadMusic();
+  if (name === 'eq')        loadEq();
+  if (name === 'cogs')      loadCogs();
+  if (name === 'log') {
+    fetchLog();
+    logInterval = setInterval(fetchLog, 2000);
+  }
+}
+
+// ── api ───────────────────────────────────────────────────────────────────
+async function apiFetch(path) {
+  try { const r = await fetch(API + path); if (!r.ok) throw new Error(r.status); return await r.json(); }
+  catch(e) { console.error(path, e); return null; }
+}
+async function apiPost(path, body) {
+  try { const r = await fetch(API + path, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }); return r.ok; }
+  catch(e) { return false; }
+}
+
+// ── restart ───────────────────────────────────────────────────────────────
+function confirmRestart() {
+  document.getElementById('restart-modal-msg').textContent =
+    'The bot process will restart immediately. Active voice connections will be dropped. Continue?';
+  document.getElementById('restart-confirm-btn').onclick = doRestart;
+  document.getElementById('restart-modal').classList.add('show');
+}
+function showRestartModal(msg) {
+  document.getElementById('restart-modal-msg').textContent = msg;
+  document.getElementById('restart-confirm-btn').textContent = 'Restart';
+  document.getElementById('restart-confirm-btn').onclick = doRestart;
+  document.getElementById('restart-modal').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('restart-modal').classList.remove('show');
+}
+async function doRestart() {
+  closeModal();
+  toast('restarting...', 'warn');
+  await apiPost('/api/restart', {});
+}
+
+// ── guild switch ──────────────────────────────────────────────────────────
+async function switchGuild(gid) {
+  currentGuild = gid || null;
+  if (!gid) return;
+  allRoles = (await apiFetch(`/api/guild/${gid}/roles`)) || [];
+  buildRolePicker();
+  // reload current guild-specific page if open
+  const active = document.querySelector('.page.active');
+  if (active) {
+    const name = active.id.replace('page-', '');
+    if (name === 'autorole') loadAutorole();
+  }
+}
+
+function buildRolePicker() {
+  const sel = document.getElementById('ar-picker');
+  sel.innerHTML = '<option value="">— pick a role —</option>' +
+    allRoles.map(r => `<option value="${r.id}" data-c="${r.color}" data-n="${r.name}">${r.name}</option>`).join('');
+  sel.onchange = () => {
+    const o = sel.options[sel.selectedIndex];
+    if (!o.value) return;
+    addArRole({ id: o.value, name: o.dataset.n, color: o.dataset.c });
+    sel.value = '';
+  };
+}
+
+// ── status ────────────────────────────────────────────────────────────────
+async function loadStatus() {
+  const data = await apiFetch('/api/status');
+  if (!data) return;
+  document.getElementById('s-guilds').textContent  = data.guilds.length;
+  document.getElementById('s-playing').textContent = data.guilds.filter(g => g.playing).length;
+  document.getElementById('s-ping').textContent    = data.latency_ms;
+  document.getElementById('hdr-ping').textContent  = data.latency_ms + 'ms';
+  document.getElementById('foot-ping').textContent = data.latency_ms + 'ms';
+
+  const list = document.getElementById('guild-list');
+  if (!data.guilds.length) { list.innerHTML = '<div class="empty">no servers found</div>'; return; }
+  list.innerHTML = data.guilds.map(g => `
+    <div class="guild-row">
+      ${g.icon ? `<img class="guild-icon" src="${g.icon}">` : '<div class="guild-icon"></div>'}
+      <div class="guild-info">
+        <div class="guild-name">${g.name}</div>
+        <div class="guild-sub">${g.member_count.toLocaleString()} members</div>
+      </div>
+      ${g.now_playing ? `<span class="badge badge-on">▶ ${g.now_playing.slice(0,32)}</span>`
+        : g.in_voice  ? `<span class="badge badge-on">in voice</span>`
+                      : `<span class="badge badge-off">idle</span>`}
+    </div>`).join('');
+}
+
+// ── autorole ──────────────────────────────────────────────────────────────
+async function loadAutorole() {
+  if (!currentGuild) return;
+  const data = await apiFetch(`/api/guild/${currentGuild}/autorole`);
+  if (!data) return;
+  document.getElementById('ar-on').checked = !!data.enabled;
+  arRoles = (data.roles || []).map(rid => {
+    const r = allRoles.find(x => x.id === rid);
+    return r ? { id: rid, name: r.name, color: r.color } : { id: rid, name: rid, color: '#444' };
+  });
+  renderChips();
+}
+function addArRole(r) { if (arRoles.find(x => x.id === r.id)) return; arRoles.push(r); renderChips(); }
+function removeArRole(id) { arRoles = arRoles.filter(r => r.id !== id); renderChips(); }
+function renderChips() {
+  document.getElementById('ar-chips').innerHTML = arRoles.map(r =>
+    `<div class="chip"><span class="chip-dot" style="background:${r.color}"></span><span>${r.name}</span><span class="chip-x" onclick="removeArRole('${r.id}')">×</span></div>`
+  ).join('');
+}
+async function saveAutorole() {
+  if (!currentGuild) return toast('select a server first', 'err');
+  const ok = await apiPost(`/api/guild/${currentGuild}/autorole`, {
+    enabled: document.getElementById('ar-on').checked,
+    roles: arRoles.map(r => r.id),
+  });
+  ok ? toast('saved') : toast('save failed', 'err');
+}
+
+// ── music ─────────────────────────────────────────────────────────────────
+async function loadMusic() {
+  const data = await apiFetch('/api/settings');
+  if (!data) return;
+  const d = data.defaults || {};
+  document.getElementById('mu-cf').checked    = !!d.crossfade;
+  document.getElementById('mu-radio').checked = !!d.radio;
+  document.getElementById('mu-loop').checked  = !!d.loop;
+  document.getElementById('mu-lq').checked    = !!d.loop_queue;
+  const dur = data.crossfade_duration || 6;
+  document.getElementById('mu-dur').value = dur;
+  document.getElementById('mu-dur-v').textContent = dur + 's';
+}
+async function saveMusic() {
+  const ok = await apiPost('/api/settings', {
+    defaults: { crossfade: document.getElementById('mu-cf').checked, radio: document.getElementById('mu-radio').checked, loop: document.getElementById('mu-loop').checked, loop_queue: document.getElementById('mu-lq').checked },
+    crossfade_duration: parseFloat(document.getElementById('mu-dur').value),
+  });
+  ok ? toast('saved') : toast('save failed', 'err');
+}
+
+// ── eq ────────────────────────────────────────────────────────────────────
+async function loadEq() {
+  const data = await apiFetch('/api/eq');
+  if (!data) return;
+  eqPresets = data; renderEqTable();
+}
+function renderEqTable() {
+  const rows = Object.entries(eqPresets);
+  const tbody = document.getElementById('eq-rows');
+  if (!rows.length) { tbody.innerHTML = '<tr><td colspan="3" class="empty">no presets</td></tr>'; return; }
+  tbody.innerHTML = rows.map(([name, filter]) => `
+    <tr>
+      <td><b>${name}</b></td>
+      <td class="eq-filter">${filter || '<span style="color:var(--sub)">flat</span>'}</td>
+      <td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="deletePreset('${name}')">delete</button></td>
+    </tr>`).join('');
+}
+async function addPreset() {
+  const name = document.getElementById('eq-new-name').value.trim().toLowerCase().replace(/\s+/g,'_');
+  const filter = document.getElementById('eq-new-filter').value.trim();
+  if (!name) return toast('enter a name', 'err');
+  eqPresets[name] = filter;
+  const ok = await apiPost('/api/eq', eqPresets);
+  if (ok) { document.getElementById('eq-new-name').value = ''; document.getElementById('eq-new-filter').value = ''; renderEqTable(); toast('preset added'); }
+  else toast('save failed', 'err');
+}
+async function deletePreset(name) {
+  const ok = await apiPost('/api/eq/delete', { name });
+  if (ok) { delete eqPresets[name]; renderEqTable(); toast('deleted'); }
+  else toast('delete failed', 'err');
+}
+
+// ── cogs ──────────────────────────────────────────────────────────────────
+const COG_NOTES = {
+  fun: 'random vc sounds', instagram: 'instagram reposter', music: 'core player',
+  music_eq: 'eq commands', music_queue: 'queue commands', music_radio: 'radio mode',
+  quote: 'quote images', system: 'ping / join', autoresponder: 'auto responder',
+  embeds: 'embed manager', dashboard: 'this dashboard',
+};
+let _origCogStates = {};
+
+async function loadCogs() {
+  const data = await apiFetch('/api/cogs');
+  if (!data) return;
+  _origCogStates = {};
+  Object.entries(data).forEach(([n, i]) => { _origCogStates[n] = i.loaded; });
+  cogsDirty = false;
+  document.getElementById('cog-unsaved-notice').style.display = 'none';
+  document.getElementById('cog-grid').innerHTML = Object.entries(data).map(([name, info]) => `
+    <div class="cog-card" id="cogcard-${name}">
+      <div><div class="cog-name">${name}</div><div class="cog-note">${COG_NOTES[name]||''}</div></div>
+      <label class="tog">
+        <input type="checkbox" data-cog="${name}" ${info.loaded?'checked':''} ${name==='dashboard'?'disabled':''}
+               onchange="cogChanged('${name}', this.checked)">
+        <span class="slider"></span>
+      </label>
+    </div>`).join('');
+}
+function cogChanged(name, val) {
+  const orig = _origCogStates[name];
+  const card = document.getElementById('cogcard-' + name);
+  if (val !== orig) card.classList.add('cog-unsaved');
+  else card.classList.remove('cog-unsaved');
+  const anyDirty = [...document.querySelectorAll('[data-cog]')].some(cb => cb.checked !== _origCogStates[cb.dataset.cog]);
+  cogsDirty = anyDirty;
+  document.getElementById('cog-unsaved-notice').style.display = anyDirty ? '' : 'none';
+}
+async function saveCogs() {
+  const changes = {};
+  document.querySelectorAll('[data-cog]').forEach(cb => { changes[cb.dataset.cog] = cb.checked; });
+  const ok = await apiPost('/api/cogs', changes);
+  if (ok) {
+    toast('cog changes applied — some may need a restart');
+    cogsDirty = false;
+    document.getElementById('cog-unsaved-notice').style.display = 'none';
+    document.querySelectorAll('.cog-card').forEach(c => c.classList.remove('cog-unsaved'));
+    // update baseline
+    document.querySelectorAll('[data-cog]').forEach(cb => { _origCogStates[cb.dataset.cog] = cb.checked; });
+  } else {
+    toast('apply failed', 'err');
+  }
+}
+
+// ── log ───────────────────────────────────────────────────────────────────
+const LOG_COLORS = { ERROR: '#c93333', WARNING: '#e0a020', INFO: '#5a9cf5', DEBUG: '#4a4a4a' };
+
+function colorLine(raw) {
+  const esc = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  for (const [key, color] of Object.entries(LOG_COLORS)) {
+    if (raw.includes(key) || raw.includes('[' + key.charAt(0) + key.slice(1).toLowerCase() + ']')) {
+      return `<span style="color:${color}">${esc}</span>`;
+    }
+  }
+  return `<span style="color:#aaa">${esc}</span>`;
+}
+
+async function fetchLog() {
+  const data = await apiFetch('/api/log');
+  if (!data || !Array.isArray(data.lines)) return;
+  const box = document.getElementById('log-box');
+  if (!box) return;
+  const wasAtBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 40;
+  document.getElementById('log-count').textContent = data.lines.length + ' lines';
+  box.innerHTML = data.lines.length
+    ? data.lines.map(colorLine).join('\n')
+    : '<span style="color:var(--sub)">// no output captured yet</span>';
+  if (wasAtBottom) box.scrollTop = box.scrollHeight;
+}
+
+function clearLog() {
+  const box = document.getElementById('log-box');
+  if (box) { box.innerHTML = '<span style="color:var(--sub)">// cleared</span>'; }
+  document.getElementById('log-count').textContent = '';
+}
+
+// ── init ──────────────────────────────────────────────────────────────────
+async function init() {
+  const guilds = await apiFetch('/api/guilds');
+  if (!guilds) return;
+  const sel = document.getElementById('guild-select');
+  sel.innerHTML = '<option value="">— select server —</option>' +
+    guilds.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  if (guilds.length === 1) { sel.value = guilds[0].id; await switchGuild(guilds[0].id); }
+  loadStatus();
+  loadEq();
+  loadCogs();
+  setInterval(loadStatus, 15000);
+}
+
+// close modal on backdrop click
+document.getElementById('restart-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+init();
+</script>
+</body>
+</html>
