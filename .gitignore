@@ -136,3 +136,4 @@ dmypy.json
 # Project-specific
 config/cookies.txt
 config/ig_session_*
+data/guilds
