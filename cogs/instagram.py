@@ -20,22 +20,25 @@ IG_USERNAME  = os.getenv("INSTAGRAM_USERNAME")
 IG_PASSWORD  = os.getenv("INSTAGRAM_PASSWORD")
 SESSION_FILE = f"config/ig_session_{IG_USERNAME}" if IG_USERNAME else None
 
-YDL_OPTS = {
-    "quiet":         True,
-    "no_warnings":   True,
-    "skip_download": True,
-    "noplaylist":    False,
-    "cookiefile":    "config/cookies.txt",
-    "http_headers": {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/124.0.0.0 Safari/537.36"
-        ),
-        "Referer": "https://www.instagram.com/",
+YTDL_OPTIONS = {
+    'format': 'bestaudio[abr<=96]/bestaudio/best',
+    'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
+    'restrictfilenames': True,
+    'noplaylist': False,
+    'ignoreerrors': True,
+    'logtostderr': False,
+    'quiet': True,
+    'no_warnings': True,
+    'default_search': 'ytsearch',
+    'source_address': '0.0.0.0',
+    'cookiefile': 'config/cookies.txt',
+    'skip_download': True,
+    'socket_timeout': 10,
+    'retries': 3,
+    'concurrent_fragment_downloads': 4,
+    'extractor_args': {
+        'youtubepot-bgutilhttp': {'base_url': ['http://bgutil-provider:4416']},
     },
-    "format":         "best",
-    "source_address": "0.0.0.0",
 }
 
 DOWNLOAD_HEADERS = {

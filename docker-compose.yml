@@ -14,3 +14,11 @@ services:
     volumes:
       - ./config:/app/config
     restart: unless-stopped
+
+
+  bgutil-provider:
+    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    container_name: bgutil-provider
+    restart: unless-stopped
+    # No ports needed on the host — cucumber-bot reaches it internally
+    # at http://bgutil-provider:4416 over the default compose network.

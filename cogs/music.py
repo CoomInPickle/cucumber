@@ -33,6 +33,9 @@ YTDL_OPTIONS = {
     'socket_timeout': 10,
     'retries': 3,
     'concurrent_fragment_downloads': 4,
+    'extractor_args': {
+        'youtubepot-bgutilhttp': {'base_url': ['http://bgutil-provider:4416']},
+    },
 }
 
 YTDL_FLAT_OPTIONS = {

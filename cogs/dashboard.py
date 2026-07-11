@@ -11,6 +11,7 @@ from data.variables import Timestamp
 
 SETTINGS_PATH   = "config/settings.json"
 EQ_PRESETS_PATH = "config/eq_presets.json"
+GUILDS_DIR      = "data/guilds"
 DASHBOARD_PORT  = int(os.getenv("DASHBOARD_PORT", 8080))
 LOG_MAX_LINES   = 500
 
@@ -18,8 +19,6 @@ _log_buffer: deque = deque(maxlen=LOG_MAX_LINES)
 
 
 # ── log capture ───────────────────────────────────────────────────────────────
-# Intercepts both logging records AND raw print() output so the dashboard
-# log page shows everything the bot produces regardless of how it was emitted.
 
 class _LogHandler(logging.Handler):
     def emit(self, record: logging.LogRecord):
@@ -27,7 +26,6 @@ class _LogHandler(logging.Handler):
 
 
 class _StdoutCapture:
-    """Wraps the real stdout, tees every write into the log buffer."""
     def __init__(self, real):
         self._real = real
 
@@ -45,7 +43,6 @@ class _StdoutCapture:
 
 
 def _install_log_capture():
-    # Capture logging module output
     handler = _LogHandler()
     handler.setFormatter(
         logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s", "%H:%M:%S")
@@ -56,15 +53,13 @@ def _install_log_capture():
     discord_log = logging.getLogger("discord")
     if not any(isinstance(h, _LogHandler) for h in discord_log.handlers):
         discord_log.addHandler(handler)
-
-    # Capture print() output
     if not isinstance(sys.stdout, _StdoutCapture):
         sys.stdout = _StdoutCapture(sys.stdout)
 
 
 # ── storage helpers ───────────────────────────────────────────────────────────
 
-def _load_json(path: str, default) -> dict | list:
+def _load_json(path: str, default):
     try:
         if os.path.exists(path):
             with open(path) as f:
@@ -74,7 +69,7 @@ def _load_json(path: str, default) -> dict | list:
     return default
 
 
-def _save_json(path: str, data: dict | list):
+def _save_json(path: str, data):
     dirpath = os.path.dirname(path)
     if dirpath:
         os.makedirs(dirpath, exist_ok=True)
@@ -82,19 +77,36 @@ def _save_json(path: str, data: dict | list):
         json.dump(data, f, indent=2)
 
 
-def _guild_path(guild_id: str, filename: str) -> str:
-    path = os.path.join("guilds", str(guild_id))
+def _guild_dir(guild_id: str) -> str:
+    path = os.path.join(GUILDS_DIR, str(guild_id))
     os.makedirs(path, exist_ok=True)
-    return os.path.join(path, filename)
+    return path
 
 
-def _load_guild(guild_id: str, filename: str, default) -> dict | list:
+def _guild_path(guild_id: str, filename: str) -> str:
+    return os.path.join(_guild_dir(guild_id), filename)
+
+
+def _load_guild(guild_id: str, filename: str, default):
     return _load_json(_guild_path(guild_id, filename), default)
 
 
-def _save_guild(guild_id: str, filename: str, data: dict | list):
+def _save_guild(guild_id: str, filename: str, data):
     _save_json(_guild_path(guild_id, filename), data)
 
+
+# ── other helpers   ───────────────────────────────────────────────────────────
+
+def safe_url(url):
+    if not url:
+        return None
+
+    url = str(url).strip()
+
+    if url.startswith(("http://", "https://")):
+        return url
+
+    return None
 
 # ── aiohttp helpers ───────────────────────────────────────────────────────────
 
@@ -147,18 +159,21 @@ class Dashboard(commands.Cog):
         r.add_post("/api/eq/delete",self._api_delete_eq)
 
         # per-guild
-        r.add_get ("/api/guild/{gid}",              self._api_guild_info)
-        r.add_get ("/api/guild/{gid}/roles",        self._api_roles)
-        r.add_get ("/api/guild/{gid}/channels",     self._api_channels)
+        r.add_get ("/api/guild/{gid}/roles",    self._api_roles)
+        r.add_get ("/api/guild/{gid}/channels", self._api_channels)
 
-        r.add_get ("/api/guild/{gid}/autorole",     self._api_get_autorole)
-        r.add_post("/api/guild/{gid}/autorole",     self._api_set_autorole)
+        # per-guild: autorole
+        r.add_get ("/api/guild/{gid}/autorole", self._api_get_autorole)
+        r.add_post("/api/guild/{gid}/autorole", self._api_set_autorole)
 
-        r.add_get ("/api/guild/{gid}/autoresponder",     self._api_get_autoresponder)
-        r.add_post("/api/guild/{gid}/autoresponder",     self._api_set_autoresponder)
+        # per-guild: autoresponder
+        r.add_get ("/api/guild/{gid}/autoresponder", self._api_get_autoresponder)
+        r.add_post("/api/guild/{gid}/autoresponder", self._api_set_autoresponder)
 
-        r.add_get ("/api/guild/{gid}/embeds",       self._api_get_embeds)
-        r.add_post("/api/guild/{gid}/embeds",       self._api_set_embeds)
+        # per-guild: embeds  (name-keyed: {name: embedData})
+        r.add_get ("/api/guild/{gid}/embeds",         self._api_get_embeds)
+        r.add_post("/api/guild/{gid}/embeds",         self._api_set_embeds)
+        r.add_post("/api/guild/{gid}/embeds/send",    self._api_send_embed)
 
     # ── static ────────────────────────────────────────────────────────────────
 
@@ -219,7 +234,6 @@ class Dashboard(commands.Cog):
     # ── cogs ──────────────────────────────────────────────────────────────────
 
     async def _api_get_cogs(self, request: web.Request) -> web.Response:
-        # Discover all cog files on disk dynamically
         result = {}
         cogs_dir = os.path.join(os.path.dirname(__file__), "..", "cogs")
         if os.path.isdir(cogs_dir):
@@ -235,7 +249,6 @@ class Dashboard(commands.Cog):
             body = await request.json()
         except Exception:
             return json_resp({"error": "Invalid JSON"}, 400)
-        # Build valid cog names from disk
         cogs_dir = os.path.join(os.path.dirname(__file__), "..", "cogs")
         valid = {f[:-3] for f in os.listdir(cogs_dir) if f.endswith(".py")} if os.path.isdir(cogs_dir) else set()
         results = {}
@@ -256,10 +269,9 @@ class Dashboard(commands.Cog):
             except Exception as e:
                 results[name] = f"error: {e}"
                 print(f"{Timestamp()} [Dashboard] Cog toggle error for {name}: {e}")
-        print(f"{Timestamp()} [Dashboard] Cog changes: {results}")
         return json_resp({"ok": True, "results": results})
 
-    # ── bot-level music / eq ──────────────────────────────────────────────────
+    # ── music / eq ────────────────────────────────────────────────────────────
 
     async def _api_get_settings(self, request: web.Request) -> web.Response:
         return json_resp(_load_json(SETTINGS_PATH, {}))
@@ -309,12 +321,6 @@ class Dashboard(commands.Cog):
     def _guild(self, request: web.Request) -> discord.Guild | None:
         return self.client.get_guild(int(request.match_info["gid"]))
 
-    async def _api_guild_info(self, request: web.Request) -> web.Response:
-        g = self._guild(request)
-        if not g:
-            return json_resp({"error": "Guild not found"}, 404)
-        return json_resp({"id": str(g.id), "name": g.name, "icon": str(g.icon.url) if g.icon else None, "member_count": g.member_count})
-
     async def _api_roles(self, request: web.Request) -> web.Response:
         g = self._guild(request)
         if not g:
@@ -330,10 +336,7 @@ class Dashboard(commands.Cog):
         g = self._guild(request)
         if not g:
             return json_resp({"error": "Guild not found"}, 404)
-        channels = [
-            {"id": str(c.id), "name": c.name, "type": "text"}
-            for c in g.text_channels
-        ]
+        channels = [{"id": str(c.id), "name": c.name} for c in g.text_channels]
         channels.sort(key=lambda c: c["name"])
         return json_resp(channels)
 
@@ -369,21 +372,101 @@ class Dashboard(commands.Cog):
         print(f"{Timestamp()} [Dashboard] Autoresponder updated for {gid}")
         return json_resp({"ok": True})
 
-    # ── embeds ────────────────────────────────────────────────────────────────
+    # ── embeds (name-keyed: {name: embedData}) ───────────────────────────────
 
     async def _api_get_embeds(self, request: web.Request) -> web.Response:
         gid = request.match_info["gid"]
         return json_resp(_load_guild(gid, "embeds.json", {}))
 
     async def _api_set_embeds(self, request: web.Request) -> web.Response:
+        """Replace the entire embeds dict for a guild (name → data)."""
         gid = request.match_info["gid"]
         try:
             body = await request.json()
         except Exception:
             return json_resp({"error": "Invalid JSON"}, 400)
+        if not isinstance(body, dict):
+            return json_resp({"error": "Expected object"}, 400)
         _save_guild(gid, "embeds.json", body)
-        print(f"{Timestamp()} [Dashboard] Embeds updated for {gid}")
+        print(f"{Timestamp()} [Dashboard] Embeds updated for {gid} ({len(body)} entries)")
         return json_resp({"ok": True})
+
+    async def _api_send_embed(self, request: web.Request) -> web.Response:
+        """Send a saved embed to a channel via the bot. Looks up by name."""
+        gid = request.match_info["gid"]
+        try:
+            body = await request.json()
+        except Exception:
+            return json_resp({"error": "Invalid JSON"}, 400)
+
+        name = body.get("name")
+        channel_id = body.get("channel_id")
+        if not name or not channel_id:
+            return json_resp({"error": "Missing name or channel_id"}, 400)
+
+        embeds = _load_guild(gid, "embeds.json", {})
+        if name not in embeds:
+            return json_resp({"error": "Embed not found"}, 404)
+
+        embed_data = embeds[name]
+        channel = self.client.get_channel(int(channel_id))
+        if not channel:
+            return json_resp({"error": "Channel not found"}, 404)
+
+        # Build discord embed
+        color_hex = embed_data.get("color", "#5865F2").lstrip("#")
+        try:
+            color = discord.Color(int(color_hex, 16))
+        except Exception:
+            color = discord.Color.blurple()
+
+        em = discord.Embed(
+            title=embed_data.get("title") or None,
+            description=embed_data.get("description") or None,
+            color=color,
+        )
+
+        em.url = safe_url(embed_data.get("url"))
+
+        author = embed_data.get("author", {})
+        if author.get("name"):
+            em.set_author(
+                name=author["name"],
+                url=safe_url(author.get("url")),
+                icon_url=safe_url(author.get("icon_url")),
+            )
+
+        thumb = safe_url(embed_data.get("thumbnail"))
+        if thumb:
+            em.set_thumbnail(url=thumb)
+
+        image = safe_url(embed_data.get("image"))
+        if image:
+            em.set_image(url=image)
+
+        for field in embed_data.get("fields", []):
+            em.add_field(
+                name=field.get("name", "\u200b"),
+                value=field.get("value", "\u200b"),
+                inline=field.get("inline", False),
+            )
+
+        footer = embed_data.get("footer", {})
+        if footer.get("text"):
+            em.set_footer(
+                text=footer["text"],
+                icon_url=safe_url(footer.get("icon_url")),
+            )
+
+        try:
+            content = embed_data.get("content") or None
+            await channel.send(content=content, embed=em)
+            print(f"{Timestamp()} [Dashboard] Sent embed '{name}' to #{channel.name}")
+            return json_resp({"ok": True})
+        except discord.Forbidden:
+            return json_resp({"error": "Missing permissions to send in that channel"}, 403)
+        except Exception as e:
+            return json_resp({"error": str(e)}, 500)
 
     # ── lifecycle ─────────────────────────────────────────────────────────────
 
@@ -425,21 +508,38 @@ class Dashboard(commands.Cog):
             except discord.Forbidden:
                 print(f"{Timestamp()} [Dashboard] Autorole: missing permissions in {member.guild.name}")
 
+    # ── autoresponder enforcement ─────────────────────────────────────────────
 
-# module-level helpers that mirror _load_guild/_save_guild for use outside the class
-
-def _load_guild(guild_id: str, filename: str, default) -> dict | list:
-    return _load_json(_guild_path(guild_id, filename), default)
-
-
-def _save_guild(guild_id: str, filename: str, data: dict | list):
-    _save_json(_guild_path(guild_id, filename), data)
-
-
-def _guild_path(guild_id: str, filename: str) -> str:
-    path = os.path.join("guilds", str(guild_id))
-    os.makedirs(path, exist_ok=True)
-    return os.path.join(path, filename)
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        if message.author.bot or not message.guild:
+            return
+        gid   = str(message.guild.id)
+        rules = _load_guild(gid, "autoresponder.json", [])
+        if not rules:
+            return
+        content_lower = message.content.lower()
+        for rule in rules:
+            if not rule.get("enabled", True):
+                continue
+            trigger  = rule.get("trigger", "").lower()
+            response = rule.get("response", "")
+            match    = rule.get("match", "contains")  # contains | exact | startswith
+            if not trigger or not response:
+                continue
+            hit = False
+            if match == "exact":
+                hit = content_lower == trigger
+            elif match == "startswith":
+                hit = content_lower.startswith(trigger)
+            else:
+                hit = trigger in content_lower
+            if hit:
+                try:
+                    await message.channel.send(response)
+                except Exception:
+                    pass
+                break  # only first matching rule fires
 
 
 async def setup(client):

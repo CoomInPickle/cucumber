@@ -23,7 +23,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); color: var(--text); font-family: var(--font); font-size: 13px; line-height: 1.5; min-height: 100vh; display: flex; }
 
-/* sidebar */
+/* ── sidebar ── */
 #sidebar { width: 216px; min-height: 100vh; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0; }
 .logo { padding: 14px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 700; color: var(--accent); }
 .logo img { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
@@ -31,7 +31,27 @@ body { background: var(--bg); color: var(--text); font-family: var(--font); font
 #guild-select { width: 100%; background: var(--card); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; font-family: var(--font); font-size: 12px; outline: none; cursor: pointer; }
 #guild-select:focus { border-color: var(--accent); }
 nav { flex: 1; padding: 4px 0; overflow-y: auto; }
-.nav-group { padding: 12px 14px 3px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #383838; user-select: none; }
+
+/* ── nav group labels — now actually visible ── */
+.nav-group {
+  padding: 16px 14px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.8px;
+  color: #707070;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.nav-group::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #2a2a2a;
+}
+
 nav a { display: block; padding: 7px 16px 7px 18px; color: #888; font-size: 12px; font-weight: 500; text-decoration: none; cursor: pointer; border-left: 2px solid transparent; transition: color .1s, background .1s; }
 nav a:hover { color: var(--text); background: rgba(255,255,255,.03); }
 nav a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(51,201,0,.05); }
@@ -40,7 +60,7 @@ nav a.placeholder { opacity: .4; cursor: default; pointer-events: none; }
 .live-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); flex-shrink: 0; animation: pulse 2s infinite; }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.2} }
 
-/* main */
+/* ── main ── */
 #main { margin-left: 216px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
 header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; height: 44px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 50; }
 .page-title { font-size: 13px; font-weight: 700; }
@@ -51,12 +71,13 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .restart-btn:hover { border-color: var(--warn); color: var(--warn); }
 .restart-btn svg { width: 12px; height: 12px; }
 
-#content { padding: 22px; max-width: 860px; }
+#content { padding: 22px; max-width: 900px; }
 #content.log-active { padding: 0; max-width: 100%; height: calc(100vh - 44px); display: flex; flex-direction: column; }
+#content.wide { max-width: 100%; }
 .page { display: none; }
 .page.active { display: block; }
 
-/* panels / cards */
+/* ── stat / panel ── */
 .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
 .stat { background: var(--card); border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; }
 .stat-val { font-size: 26px; font-weight: 700; color: var(--accent); letter-spacing: -1px; }
@@ -75,12 +96,17 @@ header { background: var(--surface); border-bottom: 1px solid var(--border); pad
 .badge-on { background: rgba(51,201,0,.1); color: var(--accent); }
 .badge-off { background: transparent; color: var(--sub); border: 1px solid var(--border); }
 
-/* forms */
+/* ── forms ── */
 .field { margin-bottom: 15px; }
 .field:last-child { margin-bottom: 0; }
 label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--sub); margin-bottom: 5px; }
-input[type="text"], select.fs { width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-family: var(--font); font-size: 12px; padding: 7px 10px; outline: none; }
-input[type="text"]:focus, select.fs:focus { border-color: var(--accent); }
+input[type="text"], input[type="url"], select.fs, textarea.fs {
+  width: 100%; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text); font-family: var(--font); font-size: 12px;
+  padding: 7px 10px; outline: none;
+}
+textarea.fs { resize: vertical; min-height: 72px; }
+input[type="text"]:focus, input[type="url"]:focus, select.fs:focus, textarea.fs:focus { border-color: var(--accent); }
 
 .row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
 .row:last-child { border-bottom: none; }
@@ -93,11 +119,9 @@ input[type="text"]:focus, select.fs:focus { border-color: var(--accent); }
 .tog input:checked + .slider { background: var(--accent); }
 .tog input:checked + .slider::before { transform: translateX(16px); background: #000; }
 .tog input:disabled + .slider { opacity: .35; cursor: not-allowed; }
-
 .range-row { display: flex; align-items: center; gap: 12px; }
 input[type="range"] { flex: 1; accent-color: var(--accent); }
 .range-val { font-size: 12px; font-weight: 700; color: var(--accent); min-width: 34px; text-align: right; }
-
 .btn { padding: 6px 14px; border-radius: 4px; border: none; font-family: var(--font); font-size: 12px; font-weight: 700; cursor: pointer; transition: filter .1s; }
 .btn-primary { background: var(--accent); color: #000; }
 .btn-primary:hover { filter: brightness(1.1); }
@@ -107,53 +131,156 @@ input[type="range"] { flex: 1; accent-color: var(--accent); }
 .btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
 .btn-danger:hover { background: var(--danger); color: #fff; }
 .actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 14px; border-top: 1px solid var(--border); margin-top: 16px; }
-
 .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
 .chip { display: flex; align-items: center; gap: 5px; background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 2px 8px; font-size: 11px; }
 .chip-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 .chip-x { cursor: pointer; color: var(--sub); margin-left: 2px; }
 .chip-x:hover { color: var(--danger); }
 .hint { font-size: 11px; color: var(--sub); margin-top: 5px; }
-
 table { width: 100%; border-collapse: collapse; }
 th { text-align: left; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .8px; color: var(--sub); padding: 0 0 9px; border-bottom: 1px solid var(--border); }
 td { padding: 8px 0; border-bottom: 1px solid var(--border); vertical-align: middle; font-size: 12px; }
 tr:last-child td { border-bottom: none; }
 .eq-filter { color: var(--sub); font-size: 11px; word-break: break-all; }
 .eq-add { display: grid; grid-template-columns: 150px 1fr auto; gap: 10px; align-items: flex-end; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
-
 .cog-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(188px, 1fr)); gap: 8px; }
 .cog-card { background: var(--surface); border: 1px solid var(--border); border-radius: 5px; padding: 11px 13px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .cog-name { font-size: 12px; font-weight: 600; }
 .cog-note { font-size: 10px; color: var(--sub); margin-top: 1px; }
 .cog-unsaved { border-color: var(--warn) !important; }
-
-/* log */
-#content.log-active { padding: 0; max-width: 100%; flex: 1; display: flex; flex-direction: column; }
-#log-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-radius: 0; border-left: none; border-right: none; border-bottom: none; margin: 0; }
-#log-panel .panel-head { flex-shrink: 0; }
-#log-box {
-  flex: 1;
-  padding: 14px 24px;
-  font-size: 11px;
-  line-height: 1.9;
-  overflow-y: scroll;
-  white-space: pre-wrap;
-  word-break: break-all;
-  background: #0a0a0a;
-  scrollbar-width: none;
-}
-#log-box::-webkit-scrollbar { display: none; }
-
-/* placeholder page */
+.empty { padding: 30px; text-align: center; color: var(--sub); }
 .placeholder-page { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 64px 20px; color: var(--sub); text-align: center; }
 .placeholder-page .icon { font-size: 32px; margin-bottom: 14px; }
 .placeholder-page h2 { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
 .placeholder-page p { font-size: 12px; max-width: 340px; }
 
-.empty { padding: 30px; text-align: center; color: var(--sub); }
+/* ── log ── */
+#log-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-radius: 0; border-left: none; border-right: none; border-bottom: none; margin: 0; }
+#log-panel .panel-head { flex-shrink: 0; }
+#log-box { flex: 1; padding: 14px 24px; font-size: 11px; line-height: 1.9; overflow-y: scroll; white-space: pre-wrap; word-break: break-all; background: #0a0a0a; scrollbar-width: none; }
+#log-box::-webkit-scrollbar { display: none; }
 
-/* modal */
+/* ── embed manager ── */
+.embed-list-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.embed-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 14px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  border-left: 3px solid #5865F2;
+  position: relative;
+}
+.embed-card:hover { border-color: #444; background: #202020; }
+.embed-card.selected { border-color: var(--accent); background: rgba(51,201,0,.05); }
+.embed-card-title { font-size: 13px; font-weight: 700; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.embed-card-desc { font-size: 11px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.embed-card-del {
+  position: absolute; top: 8px; right: 8px;
+  width: 20px; height: 20px; border-radius: 3px;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--sub); font-size: 14px; display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity .1s, color .1s;
+}
+.embed-card:hover .embed-card-del { opacity: 1; }
+.embed-card-del:hover { color: var(--danger); }
+
+.embed-workspace {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 16px;
+  align-items: flex-start;
+}
+@media (max-width: 900px) { .embed-workspace { grid-template-columns: 1fr; } }
+
+.embed-builder { background: var(--card); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.embed-builder .panel-head { }
+.embed-builder-body { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* ── Discord-style embed preview ── */
+.preview-wrap { position: sticky; top: 60px; }
+.preview-panel { background: var(--card); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+.preview-panel .panel-head { }
+.discord-preview {
+  background: #313338;
+  border-radius: 0 0 6px 6px;
+  padding: 16px;
+  min-height: 120px;
+}
+.discord-msg-content {
+  font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  font-size: 15px;
+  color: #dbdee1;
+  margin-bottom: 8px;
+  word-break: break-word;
+  white-space: pre-wrap;
+  display: none;
+}
+.discord-msg-content.has-content { display: block; }
+.discord-embed {
+  border-radius: 4px;
+  border-left: 4px solid #5865F2;
+  background: #2b2d31;
+  padding: 12px 16px 12px 12px;
+  max-width: 520px;
+  font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  display: none;
+}
+.discord-embed.visible { display: block; }
+.discord-embed-grid { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+.discord-embed-author { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.discord-embed-author img { width: 20px; height: 20px; border-radius: 50%; }
+.discord-embed-author-name { font-size: 12px; font-weight: 600; color: #dbdee1; }
+.discord-embed-title { font-size: 15px; font-weight: 700; color: #dbdee1; margin-bottom: 6px; }
+.discord-embed-title a { color: #00aff4; text-decoration: none; }
+.discord-embed-title a:hover { text-decoration: underline; }
+.discord-embed-desc { font-size: 13px; color: #b5bac1; line-height: 1.5; white-space: pre-wrap; margin-bottom: 8px; }
+.discord-embed-fields { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
+.discord-embed-field { flex: 0 0 calc(50% - 4px); }
+.discord-embed-field.inline-full { flex: 0 0 100%; }
+.discord-embed-field-name { font-size: 12px; font-weight: 700; color: #dbdee1; margin-bottom: 2px; }
+.discord-embed-field-value { font-size: 12px; color: #b5bac1; }
+.discord-embed-image { margin-top: 10px; max-width: 100%; border-radius: 4px; overflow: hidden; }
+.discord-embed-image img { max-width: 100%; border-radius: 4px; display: block; }
+.discord-embed-thumb img { width: 80px; height: 80px; border-radius: 4px; object-fit: cover; display: block; }
+.discord-embed-footer { display: flex; align-items: center; gap: 6px; margin-top: 10px; padding-top: 8px; }
+.discord-embed-footer img { width: 16px; height: 16px; border-radius: 50%; }
+.discord-embed-footer-text { font-size: 11px; color: #949ba4; }
+.preview-empty { padding: 24px; text-align: center; color: var(--sub); font-size: 11px; }
+
+/* color swatch row */
+.color-swatches { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.color-swatch {
+  width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+  border: 2px solid transparent; transition: border-color .1s, transform .1s;
+  flex-shrink: 0;
+}
+.color-swatch.active, .color-swatch:hover { border-color: #fff; transform: scale(1.15); }
+.color-swatch-custom { display: flex; align-items: center; gap: 4px; }
+.color-swatch-custom input[type="color"] { width: 24px; height: 24px; border: none; background: none; padding: 0; cursor: pointer; border-radius: 50%; }
+
+/* fields editor */
+.embed-fields-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.embed-field-row { display: grid; grid-template-columns: 1fr 1fr auto auto; gap: 6px; align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 7px 10px; }
+.embed-field-row input { padding: 4px 6px; font-size: 11px; }
+.embed-field-inline { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--sub); }
+.embed-field-inline input[type="checkbox"] { accent-color: var(--accent); }
+.embed-field-del { background: none; border: none; color: var(--sub); cursor: pointer; font-size: 16px; padding: 0 2px; }
+.embed-field-del:hover { color: var(--danger); }
+
+/* send bar */
+.send-bar { display: flex; gap: 8px; align-items: flex-end; padding: 14px 18px; border-top: 1px solid var(--border); background: var(--surface); }
+.send-bar select.fs { flex: 1; }
+.send-bar .btn { flex-shrink: 0; white-space: nowrap; }
+
+/* ── modal ── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 200; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .15s; }
 .modal-overlay.show { opacity: 1; pointer-events: all; }
 .modal { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 24px; width: 360px; }
@@ -161,12 +288,12 @@ tr:last-child td { border-bottom: none; }
 .modal p { font-size: 12px; color: var(--sub); margin-bottom: 20px; line-height: 1.6; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
-/* toast */
+/* ── toast ── */
 #toast { position: fixed; bottom: 18px; right: 18px; background: var(--card); border: 1px solid var(--border); border-radius: 5px; padding: 9px 15px; font-size: 12px; font-weight: 600; opacity: 0; transform: translateY(6px); transition: all .18s; z-index: 999; pointer-events: none; }
 #toast.show { opacity: 1; transform: translateY(0); }
-#toast.ok  { border-color: var(--accent); color: var(--accent); }
-#toast.err { border-color: var(--danger); color: var(--danger); }
-#toast.warn { border-color: var(--warn); color: var(--warn); }
+#toast.ok   { border-color: var(--accent); color: var(--accent); }
+#toast.err  { border-color: var(--danger); color: var(--danger); }
+#toast.warn { border-color: var(--warn);   color: var(--warn); }
 </style>
 </head>
 <body>
@@ -242,7 +369,7 @@ tr:last-child td { border-bottom: none; }
             <label>Roles</label>
             <select id="ar-picker" class="fs" style="margin-bottom:7px;"><option value="">— pick a role —</option></select>
             <div class="chips" id="ar-chips"></div>
-            <div class="hint">Stored in guilds/{id}/autorole.json — persists across restarts.</div>
+            <div class="hint">Stored in data/guilds/{id}/autorole.json — persists across restarts.</div>
           </div>
           <div class="actions">
             <button class="btn btn-ghost" onclick="loadAutorole()">Reset</button>
@@ -261,12 +388,165 @@ tr:last-child td { border-bottom: none; }
       </div>
     </div>
 
-    <!-- EMBEDS placeholder -->
+    <!-- EMBEDS -->
     <div class="page" id="page-embeds">
-      <div class="placeholder-page">
-        <div class="icon">📋</div>
-        <h2>Embed Manager</h2>
-        <p>Coming next — create rich Discord embeds with live preview, manage all embeds, send to any channel. Stored per server.</p>
+      <!-- embed list view -->
+      <div id="embed-list-view">
+        <div class="panel">
+          <div class="panel-head">
+            Saved Embeds
+            <button class="btn btn-primary btn-sm" onclick="newEmbed()">+ New Embed</button>
+          </div>
+          <div class="panel-body">
+            <div id="embed-list-grid" class="embed-list-grid"></div>
+            <div id="embed-list-empty" class="empty" style="display:none">
+              No embeds yet. Hit <b>+ New Embed</b> to create one.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- embed editor view -->
+      <div id="embed-editor-view" style="display:none">
+        <div class="panel-head" style="background:var(--card);border:1px solid var(--border);border-radius:6px 6px 0 0;padding:11px 18px;display:flex;align-items:center;justify-content:space-between;margin-bottom:0;">
+          <span id="embed-editor-name-display" style="font-size:13px;font-weight:700;color:var(--text);">new embed</span>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="backToEmbedList()">← back</button>
+            <button class="btn btn-primary btn-sm" onclick="saveEmbed()">Save</button>
+          </div>
+        </div>
+
+        <div class="embed-workspace" style="background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 6px 6px;padding:16px;gap:16px;">
+
+          <!-- left: builder -->
+          <div style="display:flex;flex-direction:column;gap:12px;">
+
+            <!-- embed name -->
+            <div class="field">
+              <label>Embed Name <span style="color:var(--sub);font-weight:400;">(used with /embed_send)</span></label>
+              <input type="text" id="emb-name" placeholder="my-announcement" oninput="onEmbChange()">
+            </div>
+
+            <!-- message content (above embed) -->
+            <div class="field">
+              <label>Message Content <span style="color:var(--sub);font-weight:400;">(plain text above the embed)</span></label>
+              <textarea class="fs" id="emb-content" placeholder="Optional text before the embed..." oninput="onEmbChange()"></textarea>
+            </div>
+
+            <!-- color -->
+            <div class="field">
+              <label>Color</label>
+              <div class="color-swatches">
+                <div class="color-swatch" style="background:#F8371B" data-color="#F8371B" onclick="setEmbColor(this)"></div>
+                <div class="color-swatch" style="background:#F97C1B" data-color="#F97C1B" onclick="setEmbColor(this)"></div>
+                <div class="color-swatch" style="background:#FAC81C" data-color="#FAC81C" onclick="setEmbColor(this)"></div>
+                <div class="color-swatch" style="background:#42D1B5" data-color="#42D1B5" onclick="setEmbColor(this)"></div>
+                <div class="color-swatch" style="background:#2CAEF6" data-color="#2CAEF6" onclick="setEmbColor(this)"></div>
+                <div class="color-swatch active" style="background:#5865F2" data-color="#5865F2" onclick="setEmbColor(this)"></div>
+                <div class="color-swatch" style="background:#33C900" data-color="#33C900" onclick="setEmbColor(this)"></div>
+                <div class="color-swatch-custom">
+                  <input type="color" id="emb-color-picker" value="#5865F2" oninput="setEmbColorHex(this.value)">
+                </div>
+              </div>
+            </div>
+
+            <!-- author -->
+            <div class="field">
+              <label>Author</label>
+              <div class="field-row" style="margin-bottom:6px;">
+                <input type="text" id="emb-author-name" placeholder="Author Name" oninput="onEmbChange()">
+                <input type="url"  id="emb-author-url"  placeholder="Author URL" oninput="onEmbChange()">
+              </div>
+              <input type="url" id="emb-author-icon" placeholder="Author Icon URL" oninput="onEmbChange()">
+            </div>
+
+            <!-- title -->
+            <div class="field">
+              <label>Title</label>
+              <div class="field-row">
+                <input type="text" id="emb-title" placeholder="Embed Title" oninput="onEmbChange()">
+                <input type="url"  id="emb-url"   placeholder="Title URL (optional)" oninput="onEmbChange()">
+              </div>
+            </div>
+
+            <!-- description -->
+            <div class="field">
+              <label>Description</label>
+              <textarea class="fs" id="emb-desc" placeholder="Main embed body text..." rows="4" oninput="onEmbChange()"></textarea>
+            </div>
+
+            <!-- thumbnail / image -->
+            <div class="field-row" style="margin-bottom:0;">
+              <div class="field" style="margin-bottom:0">
+                <label>Thumbnail URL</label>
+                <input type="url" id="emb-thumb" placeholder="https://..." oninput="onEmbChange()">
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label>Image URL</label>
+                <input type="url" id="emb-image" placeholder="https://..." oninput="onEmbChange()">
+              </div>
+            </div>
+
+            <!-- fields -->
+            <div class="field">
+              <label>Fields</label>
+              <div class="embed-fields-list" id="emb-fields-list"></div>
+              <button class="btn btn-ghost btn-sm" onclick="addEmbField()">+ Add Field</button>
+            </div>
+
+            <!-- footer -->
+            <div class="field">
+              <label>Footer</label>
+              <div class="field-row">
+                <input type="text" id="emb-footer-text" placeholder="Footer Text" oninput="onEmbChange()">
+                <input type="url"  id="emb-footer-icon" placeholder="Footer Icon URL" oninput="onEmbChange()">
+              </div>
+            </div>
+          </div>
+
+          <!-- right: preview -->
+          <div class="preview-wrap">
+            <div class="preview-panel">
+              <div class="panel-head">Preview</div>
+              <div class="discord-preview">
+                <div class="discord-msg-content" id="prev-content"></div>
+                <div class="discord-embed" id="prev-embed">
+                  <div class="discord-embed-author" id="prev-author" style="display:none">
+                    <img id="prev-author-icon" src="" style="display:none">
+                    <span class="discord-embed-author-name" id="prev-author-name"></span>
+                  </div>
+                  <div class="discord-embed-grid">
+                    <div>
+                      <div class="discord-embed-title" id="prev-title" style="display:none"></div>
+                      <div class="discord-embed-desc"  id="prev-desc"  style="display:none"></div>
+                      <div class="discord-embed-fields" id="prev-fields"></div>
+                    </div>
+                    <div class="discord-embed-thumb" id="prev-thumb" style="display:none">
+                      <img id="prev-thumb-img" src="">
+                    </div>
+                  </div>
+                  <div class="discord-embed-image" id="prev-image" style="display:none">
+                    <img id="prev-image-img" src="">
+                  </div>
+                  <div class="discord-embed-footer" id="prev-footer" style="display:none">
+                    <img id="prev-footer-icon" src="" style="display:none">
+                    <span class="discord-embed-footer-text" id="prev-footer-text"></span>
+                  </div>
+                </div>
+                <div class="preview-empty" id="prev-empty">Start filling in fields to see a preview.</div>
+              </div>
+            </div>
+
+            <!-- send to channel -->
+            <div class="panel" style="margin-top:12px;">
+              <div class="panel-head">Send to Channel</div>
+              <div class="send-bar">
+                <select id="emb-channel-sel" class="fs"><option value="">— select channel —</option></select>
+                <button class="btn btn-primary" onclick="sendEmbedNow()">Send</button>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -348,7 +628,7 @@ tr:last-child td { border-bottom: none; }
 <div class="modal-overlay" id="restart-modal">
   <div class="modal">
     <h3>Restart Bot</h3>
-    <p id="restart-modal-msg">The bot will shut down cleanly. Docker will restart the container automatically (requires <code>restart: unless-stopped</code> in compose). Active voice connections will be dropped.</p>
+    <p id="restart-modal-msg">The bot will shut down cleanly. Docker will restart the container automatically.</p>
     <div class="modal-actions">
       <button class="btn btn-ghost" onclick="closeModal()">Cancel</button>
       <button class="btn btn-primary" id="restart-confirm-btn" onclick="doRestart()">Restart</button>
@@ -362,11 +642,16 @@ tr:last-child td { border-bottom: none; }
 const API = window.location.origin;
 let currentGuild = null;
 let allRoles = [];
+let allChannels = [];
 let arRoles = [];
 let eqPresets = {};
 let cogsDirty = false;
 let logInterval = null;
-let logAutoScroll = true;
+
+// current embed being edited
+let currentEmbedName = null;   // null = new
+let allEmbeds = {};            // {name: data}
+let embFields = [];            // [{name,value,inline}]
 
 // ── toast ─────────────────────────────────────────────────────────────────
 function toast(msg, type = 'ok') {
@@ -375,85 +660,71 @@ function toast(msg, type = 'ok') {
   clearTimeout(el._t); el._t = setTimeout(() => { el.className = ''; }, 2800);
 }
 
-// ── navigation ────────────────────────────────────────────────────────────
+// ── nav ───────────────────────────────────────────────────────────────────
 function nav(name) {
-  // if leaving cogs with unsaved changes, prompt restart
   const activePage = document.querySelector('.page.active');
   if (activePage && activePage.id === 'page-cogs' && cogsDirty && name !== 'cogs') {
     showRestartModal('You have unsaved cog changes. Restart now to apply them, or cancel to stay.');
     return;
   }
-
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('nav a').forEach(a => a.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
   document.querySelector(`[data-page="${name}"]`).classList.add('active');
-  document.getElementById('content').classList.toggle('log-active', name === 'log');
-
-  const titles = {
-    status: 'status', autorole: 'auto role', autoresponder: 'auto responder',
-    embeds: 'embeds', music: 'music settings', eq: 'eq presets',
-    cogs: 'cog manager', log: 'log',
-  };
+  const isLog = name === 'log';
+  const isEmbeds = name === 'embeds';
+  document.getElementById('content').classList.toggle('log-active', isLog);
+  document.getElementById('content').classList.toggle('wide', isEmbeds);
+  const titles = { status:'status', autorole:'auto role', autoresponder:'auto responder', embeds:'embeds', music:'music settings', eq:'eq presets', cogs:'cog manager', log:'log' };
   document.getElementById('page-title').textContent = titles[name] || name;
-
   clearInterval(logInterval);
   if (name === 'autorole')  loadAutorole();
+  if (name === 'embeds')    loadEmbedList();
   if (name === 'music')     loadMusic();
   if (name === 'eq')        loadEq();
   if (name === 'cogs')      loadCogs();
-  if (name === 'log') {
-    fetchLog();
-    logInterval = setInterval(fetchLog, 2000);
-  }
+  if (name === 'log') { fetchLog(); logInterval = setInterval(fetchLog, 2000); }
 }
 
-// ── api ───────────────────────────────────────────────────────────────────
+// ── api helpers ───────────────────────────────────────────────────────────
 async function apiFetch(path) {
   try { const r = await fetch(API + path); if (!r.ok) throw new Error(r.status); return await r.json(); }
   catch(e) { console.error(path, e); return null; }
 }
 async function apiPost(path, body) {
-  try { const r = await fetch(API + path, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) }); return r.ok; }
+  try { const r = await fetch(API + path, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) }); return r.ok; }
   catch(e) { return false; }
 }
 
 // ── restart ───────────────────────────────────────────────────────────────
 function confirmRestart() {
-  document.getElementById('restart-modal-msg').textContent =
-    'The bot process will restart immediately. Active voice connections will be dropped. Continue?';
+  document.getElementById('restart-modal-msg').textContent = 'The bot process will restart immediately. Active voice connections will be dropped. Continue?';
   document.getElementById('restart-confirm-btn').onclick = doRestart;
   document.getElementById('restart-modal').classList.add('show');
 }
 function showRestartModal(msg) {
   document.getElementById('restart-modal-msg').textContent = msg;
-  document.getElementById('restart-confirm-btn').textContent = 'Restart';
   document.getElementById('restart-confirm-btn').onclick = doRestart;
   document.getElementById('restart-modal').classList.add('show');
 }
-function closeModal() {
-  document.getElementById('restart-modal').classList.remove('show');
-}
-async function doRestart() {
-  closeModal();
-  toast('restarting...', 'warn');
-  await apiPost('/api/restart', {});
-}
+function closeModal() { document.getElementById('restart-modal').classList.remove('show'); }
+async function doRestart() { closeModal(); toast('restarting...', 'warn'); await apiPost('/api/restart', {}); }
 
 // ── guild switch ──────────────────────────────────────────────────────────
 async function switchGuild(gid) {
   currentGuild = gid || null;
   if (!gid) return;
-  allRoles = (await apiFetch(`/api/guild/${gid}/roles`)) || [];
+  allRoles    = (await apiFetch(`/api/guild/${gid}/roles`))    || [];
+  allChannels = (await apiFetch(`/api/guild/${gid}/channels`)) || [];
   buildRolePicker();
-  // reload current guild-specific page if open
+  buildChannelPicker();
   const active = document.querySelector('.page.active');
   if (active) {
     const name = active.id.replace('page-', '');
     if (name === 'autorole') loadAutorole();
+    if (name === 'embeds')   loadEmbedList();
   }
 }
-
 function buildRolePicker() {
   const sel = document.getElementById('ar-picker');
   sel.innerHTML = '<option value="">— pick a role —</option>' +
@@ -465,6 +736,11 @@ function buildRolePicker() {
     sel.value = '';
   };
 }
+function buildChannelPicker() {
+  const sel = document.getElementById('emb-channel-sel');
+  sel.innerHTML = '<option value="">— select channel —</option>' +
+    allChannels.map(c => `<option value="${c.id}">#${c.name}</option>`).join('');
+}
 
 // ── status ────────────────────────────────────────────────────────────────
 async function loadStatus() {
@@ -475,19 +751,13 @@ async function loadStatus() {
   document.getElementById('s-ping').textContent    = data.latency_ms;
   document.getElementById('hdr-ping').textContent  = data.latency_ms + 'ms';
   document.getElementById('foot-ping').textContent = data.latency_ms + 'ms';
-
   const list = document.getElementById('guild-list');
   if (!data.guilds.length) { list.innerHTML = '<div class="empty">no servers found</div>'; return; }
   list.innerHTML = data.guilds.map(g => `
     <div class="guild-row">
       ${g.icon ? `<img class="guild-icon" src="${g.icon}">` : '<div class="guild-icon"></div>'}
-      <div class="guild-info">
-        <div class="guild-name">${g.name}</div>
-        <div class="guild-sub">${g.member_count.toLocaleString()} members</div>
-      </div>
-      ${g.now_playing ? `<span class="badge badge-on">▶ ${g.now_playing.slice(0,32)}</span>`
-        : g.in_voice  ? `<span class="badge badge-on">in voice</span>`
-                      : `<span class="badge badge-off">idle</span>`}
+      <div class="guild-info"><div class="guild-name">${g.name}</div><div class="guild-sub">${g.member_count.toLocaleString()} members</div></div>
+      ${g.now_playing ? `<span class="badge badge-on">▶ ${g.now_playing.slice(0,32)}</span>` : g.in_voice ? `<span class="badge badge-on">in voice</span>` : `<span class="badge badge-off">idle</span>`}
     </div>`).join('');
 }
 
@@ -512,10 +782,7 @@ function renderChips() {
 }
 async function saveAutorole() {
   if (!currentGuild) return toast('select a server first', 'err');
-  const ok = await apiPost(`/api/guild/${currentGuild}/autorole`, {
-    enabled: document.getElementById('ar-on').checked,
-    roles: arRoles.map(r => r.id),
-  });
+  const ok = await apiPost(`/api/guild/${currentGuild}/autorole`, { enabled: document.getElementById('ar-on').checked, roles: arRoles.map(r => r.id) });
   ok ? toast('saved') : toast('save failed', 'err');
 }
 
@@ -533,10 +800,7 @@ async function loadMusic() {
   document.getElementById('mu-dur-v').textContent = dur + 's';
 }
 async function saveMusic() {
-  const ok = await apiPost('/api/settings', {
-    defaults: { crossfade: document.getElementById('mu-cf').checked, radio: document.getElementById('mu-radio').checked, loop: document.getElementById('mu-loop').checked, loop_queue: document.getElementById('mu-lq').checked },
-    crossfade_duration: parseFloat(document.getElementById('mu-dur').value),
-  });
+  const ok = await apiPost('/api/settings', { defaults: { crossfade: document.getElementById('mu-cf').checked, radio: document.getElementById('mu-radio').checked, loop: document.getElementById('mu-loop').checked, loop_queue: document.getElementById('mu-lq').checked }, crossfade_duration: parseFloat(document.getElementById('mu-dur').value) });
   ok ? toast('saved') : toast('save failed', 'err');
 }
 
@@ -551,11 +815,8 @@ function renderEqTable() {
   const tbody = document.getElementById('eq-rows');
   if (!rows.length) { tbody.innerHTML = '<tr><td colspan="3" class="empty">no presets</td></tr>'; return; }
   tbody.innerHTML = rows.map(([name, filter]) => `
-    <tr>
-      <td><b>${name}</b></td>
-      <td class="eq-filter">${filter || '<span style="color:var(--sub)">flat</span>'}</td>
-      <td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="deletePreset('${name}')">delete</button></td>
-    </tr>`).join('');
+    <tr><td><b>${name}</b></td><td class="eq-filter">${filter || '<span style="color:var(--sub)">flat</span>'}</td>
+    <td style="text-align:right"><button class="btn btn-danger btn-sm" onclick="deletePreset('${name}')">delete</button></td></tr>`).join('');
 }
 async function addPreset() {
   const name = document.getElementById('eq-new-name').value.trim().toLowerCase().replace(/\s+/g,'_');
@@ -573,14 +834,8 @@ async function deletePreset(name) {
 }
 
 // ── cogs ──────────────────────────────────────────────────────────────────
-const COG_NOTES = {
-  fun: 'random vc sounds', instagram: 'instagram reposter', music: 'core player',
-  music_eq: 'eq commands', music_queue: 'queue commands', music_radio: 'radio mode',
-  quote: 'quote images', system: 'ping / join', autoresponder: 'auto responder',
-  embeds: 'embed manager', dashboard: 'this dashboard',
-};
+const COG_NOTES = { fun:'random vc sounds', instagram:'instagram reposter', music:'core player', music_eq:'eq commands', music_queue:'queue commands', music_radio:'radio mode', quote:'quote images', system:'ping / join', autoresponder:'auto responder', embeds:'embed manager', dashboard:'this dashboard' };
 let _origCogStates = {};
-
 async function loadCogs() {
   const data = await apiFetch('/api/cogs');
   if (!data) return;
@@ -591,51 +846,33 @@ async function loadCogs() {
   document.getElementById('cog-grid').innerHTML = Object.entries(data).map(([name, info]) => `
     <div class="cog-card" id="cogcard-${name}">
       <div><div class="cog-name">${name}</div><div class="cog-note">${COG_NOTES[name]||''}</div></div>
-      <label class="tog">
-        <input type="checkbox" data-cog="${name}" ${info.loaded?'checked':''} ${name==='dashboard'?'disabled':''}
-               onchange="cogChanged('${name}', this.checked)">
-        <span class="slider"></span>
-      </label>
+      <label class="tog"><input type="checkbox" data-cog="${name}" ${info.loaded?'checked':''} ${name==='dashboard'?'disabled':''} onchange="cogChanged('${name}', this.checked)"><span class="slider"></span></label>
     </div>`).join('');
 }
 function cogChanged(name, val) {
-  const orig = _origCogStates[name];
   const card = document.getElementById('cogcard-' + name);
-  if (val !== orig) card.classList.add('cog-unsaved');
+  if (val !== _origCogStates[name]) card.classList.add('cog-unsaved');
   else card.classList.remove('cog-unsaved');
-  const anyDirty = [...document.querySelectorAll('[data-cog]')].some(cb => cb.checked !== _origCogStates[cb.dataset.cog]);
-  cogsDirty = anyDirty;
-  document.getElementById('cog-unsaved-notice').style.display = anyDirty ? '' : 'none';
+  cogsDirty = [...document.querySelectorAll('[data-cog]')].some(cb => cb.checked !== _origCogStates[cb.dataset.cog]);
+  document.getElementById('cog-unsaved-notice').style.display = cogsDirty ? '' : 'none';
 }
 async function saveCogs() {
   const changes = {};
   document.querySelectorAll('[data-cog]').forEach(cb => { changes[cb.dataset.cog] = cb.checked; });
   const ok = await apiPost('/api/cogs', changes);
-  if (ok) {
-    toast('cog changes applied — some may need a restart and/or a sync ');
-    cogsDirty = false;
-    document.getElementById('cog-unsaved-notice').style.display = 'none';
-    document.querySelectorAll('.cog-card').forEach(c => c.classList.remove('cog-unsaved'));
-    // update baseline
-    document.querySelectorAll('[data-cog]').forEach(cb => { _origCogStates[cb.dataset.cog] = cb.checked; });
-  } else {
-    toast('apply failed', 'err');
-  }
+  if (ok) { toast('cog changes applied'); cogsDirty = false; document.getElementById('cog-unsaved-notice').style.display='none'; document.querySelectorAll('.cog-card').forEach(c=>c.classList.remove('cog-unsaved')); document.querySelectorAll('[data-cog]').forEach(cb=>{_origCogStates[cb.dataset.cog]=cb.checked;}); }
+  else toast('apply failed', 'err');
 }
 
 // ── log ───────────────────────────────────────────────────────────────────
-const LOG_COLORS = { ERROR: '#c93333', WARNING: '#e0a020', INFO: '#5a9cf5', DEBUG: '#4a4a4a' };
-
+const LOG_COLORS = { ERROR:'#c93333', WARNING:'#e0a020', INFO:'#5a9cf5', DEBUG:'#4a4a4a' };
 function colorLine(raw) {
   const esc = raw.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   for (const [key, color] of Object.entries(LOG_COLORS)) {
-    if (raw.includes(key) || raw.includes('[' + key.charAt(0) + key.slice(1).toLowerCase() + ']')) {
-      return `<span style="color:${color}">${esc}</span>`;
-    }
+    if (raw.includes(key)) return `<span style="color:${color}">${esc}</span>`;
   }
   return `<span style="color:#aaa">${esc}</span>`;
 }
-
 async function fetchLog() {
   const data = await apiFetch('/api/log');
   if (!data || !Array.isArray(data.lines)) return;
@@ -643,16 +880,286 @@ async function fetchLog() {
   if (!box) return;
   const wasAtBottom = box.scrollHeight - box.scrollTop <= box.clientHeight + 40;
   document.getElementById('log-count').textContent = data.lines.length + ' lines';
-  box.innerHTML = data.lines.length
-    ? data.lines.map(colorLine).join('\n')
-    : '<span style="color:var(--sub)">// no output captured yet</span>';
+  box.innerHTML = data.lines.length ? data.lines.map(colorLine).join('\n') : '<span style="color:var(--sub)">// no output captured yet</span>';
   if (wasAtBottom) box.scrollTop = box.scrollHeight;
 }
-
 function clearLog() {
   const box = document.getElementById('log-box');
-  if (box) { box.innerHTML = '<span style="color:var(--sub)">// cleared</span>'; }
+  if (box) box.innerHTML = '<span style="color:var(--sub)">// cleared</span>';
   document.getElementById('log-count').textContent = '';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// EMBED MANAGER
+// ═══════════════════════════════════════════════════════════════════════════
+
+async function loadEmbedList() {
+  if (!currentGuild) {
+    document.getElementById('embed-list-grid').innerHTML = '';
+    document.getElementById('embed-list-empty').style.display = 'block';
+    document.getElementById('embed-list-empty').textContent = 'Select a server first.';
+    return;
+  }
+  const data = await apiFetch(`/api/guild/${currentGuild}/embeds`);
+  allEmbeds = data || {};
+  renderEmbedList();
+}
+
+function renderEmbedList() {
+  const grid  = document.getElementById('embed-list-grid');
+  const empty = document.getElementById('embed-list-empty');
+  const entries = Object.entries(allEmbeds);
+  if (!entries.length) {
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    empty.textContent = 'No embeds yet. Hit + New Embed to create one.';
+    return;
+  }
+  empty.style.display = 'none';
+  grid.innerHTML = entries.map(([name, d]) => {
+    const color = d.color || '#5865F2';
+    return `<div class="embed-card" style="border-left-color:${color}" onclick="editEmbed('${name.replace(/'/g,"\\'")}')">
+      <button class="embed-card-del" onclick="event.stopPropagation();deleteEmbedEntry('${name.replace(/'/g,"\\'")}')">×</button>
+      <div class="embed-card-title">${d.title || name}</div>
+      <div class="embed-card-desc">${d.description ? d.description.slice(0,60) + (d.description.length>60?'…':'') : '(no description)'}</div>
+    </div>`;
+  }).join('');
+}
+
+function showEmbedList() {
+  document.getElementById('embed-list-view').style.display = '';
+  document.getElementById('embed-editor-view').style.display = 'none';
+}
+function showEmbedEditor() {
+  document.getElementById('embed-list-view').style.display = 'none';
+  document.getElementById('embed-editor-view').style.display = '';
+}
+function backToEmbedList() {
+  showEmbedList();
+  loadEmbedList();
+}
+
+function newEmbed() {
+  if (!currentGuild) return toast('select a server first', 'err');
+  currentEmbedName = null;
+  embFields = [];
+  clearEmbedForm();
+  document.getElementById('embed-editor-name-display').textContent = 'new embed';
+  showEmbedEditor();
+  updatePreview();
+}
+
+function editEmbed(name) {
+  if (!allEmbeds[name]) return;
+  currentEmbedName = name;
+  const d = allEmbeds[name];
+  embFields = (d.fields || []).map(f => ({...f}));
+  document.getElementById('emb-name').value         = name;
+  document.getElementById('emb-content').value      = d.content || '';
+  document.getElementById('emb-author-name').value  = (d.author && d.author.name) || '';
+  document.getElementById('emb-author-url').value   = (d.author && d.author.url)  || '';
+  document.getElementById('emb-author-icon').value  = (d.author && d.author.icon_url) || '';
+  document.getElementById('emb-title').value        = d.title || '';
+  document.getElementById('emb-url').value          = d.url   || '';
+  document.getElementById('emb-desc').value         = d.description || '';
+  document.getElementById('emb-thumb').value        = d.thumbnail || '';
+  document.getElementById('emb-image').value        = d.image    || '';
+  document.getElementById('emb-footer-text').value  = (d.footer && d.footer.text) || '';
+  document.getElementById('emb-footer-icon').value  = (d.footer && d.footer.icon_url) || '';
+  const color = d.color || '#5865F2';
+  document.getElementById('emb-color-picker').value = color;
+  document.querySelectorAll('.color-swatch').forEach(s => {
+    s.classList.toggle('active', s.dataset.color && s.dataset.color.toLowerCase() === color.toLowerCase());
+  });
+  document.getElementById('embed-editor-name-display').textContent = name;
+  renderFieldsList();
+  showEmbedEditor();
+  updatePreview();
+}
+
+function clearEmbedForm() {
+  ['emb-name','emb-content','emb-author-name','emb-author-url','emb-author-icon',
+   'emb-title','emb-url','emb-desc','emb-thumb','emb-image','emb-footer-text','emb-footer-icon']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('emb-color-picker').value = '#5865F2';
+  document.querySelectorAll('.color-swatch').forEach((s,i) => s.classList.toggle('active', i===5));
+  embFields = [];
+  renderFieldsList();
+}
+
+function getEmbedColor() {
+  return document.getElementById('emb-color-picker').value || '#5865F2';
+}
+function setEmbColor(el) {
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('emb-color-picker').value = el.dataset.color;
+  updatePreview();
+}
+function setEmbColorHex(val) {
+  document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
+  updatePreview();
+}
+
+function addEmbField() {
+  embFields.push({ name: '', value: '', inline: false });
+  renderFieldsList();
+  updatePreview();
+}
+function removeEmbField(i) {
+  embFields.splice(i, 1);
+  renderFieldsList();
+  updatePreview();
+}
+function renderFieldsList() {
+  const list = document.getElementById('emb-fields-list');
+  if (!embFields.length) { list.innerHTML = ''; return; }
+  list.innerHTML = embFields.map((f, i) => `
+    <div class="embed-field-row">
+      <input type="text" class="fs" placeholder="Name" value="${escHtml(f.name)}" oninput="embFields[${i}].name=this.value;updatePreview()">
+      <input type="text" class="fs" placeholder="Value" value="${escHtml(f.value)}" oninput="embFields[${i}].value=this.value;updatePreview()">
+      <label class="embed-field-inline"><input type="checkbox" ${f.inline?'checked':''} onchange="embFields[${i}].inline=this.checked;updatePreview()"> inline</label>
+      <button class="embed-field-del" onclick="removeEmbField(${i})">×</button>
+    </div>`).join('');
+}
+function escHtml(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function onEmbChange() { updatePreview(); }
+
+function collectEmbedData() {
+  return {
+    content: document.getElementById('emb-content').value.trim(),
+    color:   getEmbedColor(),
+    author: {
+      name:     document.getElementById('emb-author-name').value.trim(),
+      url:      document.getElementById('emb-author-url').value.trim(),
+      icon_url: document.getElementById('emb-author-icon').value.trim(),
+    },
+    title:       document.getElementById('emb-title').value.trim(),
+    url:         document.getElementById('emb-url').value.trim(),
+    description: document.getElementById('emb-desc').value.trim(),
+    thumbnail:   document.getElementById('emb-thumb').value.trim(),
+    image:       document.getElementById('emb-image').value.trim(),
+    footer: {
+      text:     document.getElementById('emb-footer-text').value.trim(),
+      icon_url: document.getElementById('emb-footer-icon').value.trim(),
+    },
+    fields: embFields.map(f => ({...f})),
+  };
+}
+
+async function saveEmbed() {
+  if (!currentGuild) return toast('select a server first', 'err');
+  const rawName = document.getElementById('emb-name').value.trim();
+  if (!rawName) return toast('embed needs a name', 'err');
+  const name = rawName.toLowerCase().replace(/\s+/g, '-');
+
+  // if renaming, remove old entry
+  if (currentEmbedName && currentEmbedName !== name) {
+    delete allEmbeds[currentEmbedName];
+  }
+  allEmbeds[name] = collectEmbedData();
+  const ok = await apiPost(`/api/guild/${currentGuild}/embeds`, allEmbeds);
+  if (ok) {
+    currentEmbedName = name;
+    document.getElementById('embed-editor-name-display').textContent = name;
+    toast('embed saved');
+  } else {
+    toast('save failed', 'err');
+  }
+}
+
+async function deleteEmbedEntry(name) {
+  if (!confirm(`Delete embed "${name}"?`)) return;
+  delete allEmbeds[name];
+  const ok = await apiPost(`/api/guild/${currentGuild}/embeds`, allEmbeds);
+  if (ok) { renderEmbedList(); toast('deleted'); }
+  else toast('delete failed', 'err');
+}
+
+async function sendEmbedNow() {
+  if (!currentGuild) return toast('select a server first', 'err');
+  const channelId = document.getElementById('emb-channel-sel').value;
+  if (!channelId) return toast('pick a channel first', 'err');
+  // save first, then send via backend endpoint
+  const rawName = document.getElementById('emb-name').value.trim();
+  if (!rawName) return toast('embed needs a name', 'err');
+  await saveEmbed();
+  const name = rawName.toLowerCase().replace(/\s+/g, '-');
+  const ok = await apiPost(`/api/guild/${currentGuild}/embeds/send`, { name, channel_id: channelId });
+  ok ? toast('embed sent!') : toast('send failed — check bot permissions', 'err');
+}
+
+// ── live preview ──────────────────────────────────────────────────────────
+function updatePreview() {
+  const d = collectEmbedData();
+  const color = d.color || '#5865F2';
+
+  // message content
+  const contentEl = document.getElementById('prev-content');
+  contentEl.textContent = d.content || '';
+  contentEl.classList.toggle('has-content', !!d.content);
+
+  const embedEl = document.getElementById('prev-embed');
+  const emptyEl = document.getElementById('prev-empty');
+
+  const hasEmbed = d.title || d.description || d.author?.name || d.footer?.text || d.image || d.thumbnail || d.fields?.length;
+  embedEl.classList.toggle('visible', !!hasEmbed);
+  emptyEl.style.display = (!d.content && !hasEmbed) ? 'block' : 'none';
+
+  embedEl.style.borderLeftColor = color;
+
+  // author
+  const authorEl = document.getElementById('prev-author');
+  const authorIconEl = document.getElementById('prev-author-icon');
+  const authorNameEl = document.getElementById('prev-author-name');
+  authorNameEl.textContent = d.author?.name || '';
+  if (d.author?.icon_url) { authorIconEl.src = d.author.icon_url; authorIconEl.style.display = ''; }
+  else authorIconEl.style.display = 'none';
+  authorEl.style.display = d.author?.name ? '' : 'none';
+
+  // title
+  const titleEl = document.getElementById('prev-title');
+  if (d.title) {
+    titleEl.style.display = '';
+    titleEl.innerHTML = d.url
+      ? `<a href="${escHtml(d.url)}" target="_blank">${escHtml(d.title)}</a>`
+      : escHtml(d.title);
+  } else { titleEl.style.display = 'none'; }
+
+  // desc
+  const descEl = document.getElementById('prev-desc');
+  descEl.textContent = d.description || '';
+  descEl.style.display = d.description ? '' : 'none';
+
+  // fields
+  const fieldsEl = document.getElementById('prev-fields');
+  fieldsEl.innerHTML = (d.fields||[]).filter(f=>f.name||f.value).map(f => `
+    <div class="discord-embed-field ${f.inline?'':'inline-full'}">
+      <div class="discord-embed-field-name">${escHtml(f.name)}</div>
+      <div class="discord-embed-field-value">${escHtml(f.value)}</div>
+    </div>`).join('');
+
+  // thumbnail
+  const thumbEl = document.getElementById('prev-thumb');
+  const thumbImg = document.getElementById('prev-thumb-img');
+  if (d.thumbnail) { thumbImg.src = d.thumbnail; thumbEl.style.display = ''; }
+  else thumbEl.style.display = 'none';
+
+  // image
+  const imgEl  = document.getElementById('prev-image');
+  const imgImg = document.getElementById('prev-image-img');
+  if (d.image) { imgImg.src = d.image; imgEl.style.display = ''; }
+  else imgEl.style.display = 'none';
+
+  // footer
+  const footerEl     = document.getElementById('prev-footer');
+  const footerIconEl = document.getElementById('prev-footer-icon');
+  const footerTxtEl  = document.getElementById('prev-footer-text');
+  footerTxtEl.textContent = d.footer?.text || '';
+  if (d.footer?.icon_url) { footerIconEl.src = d.footer.icon_url; footerIconEl.style.display = ''; }
+  else footerIconEl.style.display = 'none';
+  footerEl.style.display = d.footer?.text ? '' : 'none';
 }
 
 // ── init ──────────────────────────────────────────────────────────────────
@@ -669,10 +1176,7 @@ async function init() {
   setInterval(loadStatus, 15000);
 }
 
-// close modal on backdrop click
-document.getElementById('restart-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeModal();
-});
+document.getElementById('restart-modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 
 init();
 </script>
