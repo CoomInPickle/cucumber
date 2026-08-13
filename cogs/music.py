@@ -7,18 +7,19 @@ import audioop
 import time
 import json
 import os
+import shlex
 from data.variables import Timestamp
 
 FFMPEG_OPTIONS = {
     'options': '-vn',
     'before_options': (
         '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 '
-        '-reconnect_on_network_error 1'
+        '-reconnect_on_network_error 1 -reconnect_on_http_error 403,429'
     )
 }
 
 YTDL_OPTIONS = {
-    'format': 'bestaudio/best',
+    'format': 'bestaudio[abr<=96]/bestaudio/best',
     'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
     'restrictfilenames': True,
     'noplaylist': False,
@@ -30,9 +31,6 @@ YTDL_OPTIONS = {
     'source_address': '0.0.0.0',
     'cookiefile': 'config/cookies.txt',
     'skip_download': True,
-    # YouTube now requires an external JS runtime for full format extraction.
-    # Deno is installed in the Docker image and is also used automatically by yt-dlp.
-    'js_runtimes': {'deno': {}},
     'socket_timeout': 10,
     'retries': 3,
     'concurrent_fragment_downloads': 4,
@@ -170,7 +168,7 @@ def _clean_title(raw: str) -> str:
 
 
 class Song:
-    __slots__ = ('title', 'url', 'webpage_url', 'thumbnail', 'duration', 'requester')
+    __slots__ = ('title', 'url', 'webpage_url', 'thumbnail', 'duration', 'requester', 'http_headers')
 
     def __init__(self, data: dict, requester=None):
         raw_title        = data.get('title', 'Unknown')
@@ -180,6 +178,9 @@ class Song:
         self.thumbnail   = data.get('thumbnail', '')
         self.duration    = data.get('duration') or 0
         self.requester   = requester
+        # yt-dlp's media URLs can require the same HTTP headers used during extraction.
+        # Keep these with the resolved stream so ffmpeg makes an equivalent request.
+        self.http_headers = dict(data.get('http_headers') or {})
 
     def duration_str(self) -> str:
         m, s = divmod(int(self.duration), 60)
@@ -411,10 +412,24 @@ class Music(commands.Cog):
 
     def _make_raw_source(self, song: Song, eq_filter: str = "") -> discord.PCMVolumeTransformer:
         options = f"-vn -af {eq_filter}" if eq_filter else "-vn"
+
+        # YouTube media URLs are signed and can reject a request if ffmpeg does not
+        # reproduce the headers yt-dlp used to obtain the URL. This is especially
+        # common when the URL is handed from yt-dlp to a separate ffmpeg process.
+        # Keep the important extraction headers on the Song and pass them through.
+        before = FFMPEG_OPTIONS['before_options']
+        headers = dict(song.http_headers or {})
+        for key in ('Host', 'Content-Length', 'Accept-Encoding', 'Connection'):
+            headers.pop(key, None)
+
+        if headers:
+            header_blob = ''.join(f"{k}: {v}\r\n" for k, v in headers.items())
+            before += f" -headers {shlex.quote(header_blob)}"
+
         return discord.PCMVolumeTransformer(
             discord.FFmpegPCMAudio(
                 song.url,
-                before_options=FFMPEG_OPTIONS['before_options'],
+                before_options=before,
                 options=options
             ),
             volume=0.5
