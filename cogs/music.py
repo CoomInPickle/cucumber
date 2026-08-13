@@ -18,7 +18,7 @@ FFMPEG_OPTIONS = {
 }
 
 YTDL_OPTIONS = {
-    'format': 'bestaudio[abr<=96]/bestaudio/best',
+    'format': 'bestaudio/best',
     'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
     'restrictfilenames': True,
     'noplaylist': False,
@@ -30,6 +30,9 @@ YTDL_OPTIONS = {
     'source_address': '0.0.0.0',
     'cookiefile': 'config/cookies.txt',
     'skip_download': True,
+    # YouTube now requires an external JS runtime for full format extraction.
+    # Deno is installed in the Docker image and is also used automatically by yt-dlp.
+    'js_runtimes': {'deno': {}},
     'socket_timeout': 10,
     'retries': 3,
     'concurrent_fragment_downloads': 4,

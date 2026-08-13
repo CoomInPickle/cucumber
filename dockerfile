@@ -1,4 +1,9 @@
+FROM denoland/deno:bin-2.9.4 AS deno
+
 FROM python:3.13-slim
+
+COPY --from=deno /deno /usr/local/bin/deno
+RUN chmod +x /usr/local/bin/deno
 
 WORKDIR /app
 
