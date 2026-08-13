@@ -1,24 +1,22 @@
-version: '3.8'
 services:
   cucumber-bot:
+    build:
+      context: .
     image: coominpickle/cucumber:latest
     container_name: cucumber-discord-bot
     environment:
-      - BOT_TOKEN=${BOT_TOKEN}                   # Bot token from dev portal
-      - APPLICATION_ID=${APPLICATION_ID}         # Application ID from dev portal
-      - INSTAGRAM_USERNAME=${INSTAGRAM_USERNAME} # Instagram username (for photo fallback)
-      - INSTAGRAM_PASSWORD=${INSTAGRAM_PASSWORD} # Instagram password (for photo fallback)
-      # Disable cogs by setting them to false, e.g.:
-      # - INSTAGRAM_COG=false
-      # - QUOTE_COG=false
+      BOT_TOKEN: ${BOT_TOKEN}
+      APPLICATION_ID: ${APPLICATION_ID}
+      INSTAGRAM_USERNAME: ${INSTAGRAM_USERNAME}
+      INSTAGRAM_PASSWORD: ${INSTAGRAM_PASSWORD}
+      # Optional cog switches, e.g.:
+      # INSTAGRAM_COG: "false"
+      # QUOTE_COG: "false"
     volumes:
       - ./config:/app/config
     restart: unless-stopped
 
-
   bgutil-provider:
-    image: brainicism/bgutil-ytdlp-pot-provider:latest
+    image: brainicism/bgutil-ytdlp-pot-provider:1.3.1
     container_name: bgutil-provider
     restart: unless-stopped
-    # No ports needed on the host — cucumber-bot reaches it internally
-    # at http://bgutil-provider:4416 over the default compose network.

@@ -5,7 +5,6 @@ import asyncio
 import Joking
 from data.variables import BOT_TOKEN, APPLICATION_ID, Timestamp
 import logging.handlers
-import time
 
 # Bot Setup
 intents = discord.Intents.default()
@@ -31,7 +30,8 @@ async def change_status():
 @client.event
 async def on_ready():
     print(f"{Timestamp()} Cucumber is connected to Discord")
-    change_status.start()
+    if not change_status.is_running():
+        change_status.start()
 
 @client.command(name="sync")
 async def sync(ctx):
@@ -63,7 +63,7 @@ async def load():
 async def main():
     async with client:
         await load()
-        time.sleep(1)
+        await asyncio.sleep(1)
         await client.start(BOT_TOKEN)
 
 asyncio.run(main())

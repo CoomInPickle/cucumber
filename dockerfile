@@ -2,33 +2,24 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-ENV PYTHONUNBUFFERED=1
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
-RUN apt-get update && apt-get install -y \
-    git \
-    libffi-dev \
-    ffmpeg \
-    fonts-dejavu-core \
-    curl \
-    unzip \
-    && apt-get clean \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ffmpeg \
+        fonts-dejavu-core \
+        libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Deno
-RUN curl -fsSL https://deno.land/install.sh | sh
-ENV DENO_INSTALL="/root/.deno"
-ENV PATH="$DENO_INSTALL/bin:$PATH"
-RUN deno --version
-
 COPY requirements.txt /app/
-RUN pip install --no-cache-dir -U -r requirements.txt
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip install --no-cache-dir -r requirements.txt
 
 COPY . /app
 
-# config_defaults holds the bundled defaults. The real config/ is a volume mount.
-# entrypoint.sh copies defaults into the volume on first run.
-RUN cp -r /app/config /app/config_defaults
-
+# Runtime config is mounted separately by Docker Compose. Only safe defaults
+# are bundled into the image; credentials/cookies must never be baked in.
 RUN chmod +x /app/entrypoint.sh
 
 CMD ["/app/entrypoint.sh"]
