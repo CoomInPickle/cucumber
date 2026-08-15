@@ -47,7 +47,7 @@ YTDL_FLAT_OPTIONS = {
 
 GENERIC_OPTIONS = {
     **YTDL_OPTIONS,
-    'format': 'bestvideo+bestaudio/best',
+    'format': 'best',
 }
 
 # Built once per worker process by _worker_init, then reused for every task
