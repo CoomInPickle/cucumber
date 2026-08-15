@@ -3,13 +3,10 @@ from discord import app_commands
 from discord.ext import commands
 import json
 import os
-import uuid
 from data.variables import Timestamp
 
 GUILDS_DIR = "data/guilds"
 
-
-# ── storage helpers ───────────────────────────────────────────────────────────
 
 def _guild_dir(guild_id: str) -> str:
     path = os.path.join(GUILDS_DIR, str(guild_id))
@@ -108,7 +105,6 @@ class Embeds(commands.Cog):
     def __init__(self, client: commands.Bot):
         self.client = client
 
-    # ── slash: send a saved embed ─────────────────────────────────────────────
 
     @app_commands.command(name="embed", description="Send a saved embed to this channel.")
     @app_commands.describe(name="Name of the embed to send")
@@ -143,8 +139,6 @@ class Embeds(commands.Cog):
             if current.lower() in key.lower()
         ][:25]
 
-    # ── slash: list embeds ────────────────────────────────────────────────────
-
     @app_commands.command(name="embeds", description="List all saved embeds for this server.")
     async def list_embeds(self, interaction: discord.Interaction):
         guild_id = str(interaction.guild.id)
@@ -162,32 +156,6 @@ class Embeds(commands.Cog):
             color=discord.Color.from_rgb(51, 201, 0),
         )
         await interaction.response.send_message(embed=em, ephemeral=True)
-
-
-# ── API helpers used by dashboard.py ─────────────────────────────────────────
-# These are imported directly so the dashboard cog doesn't need to duplicate logic.
-
-def api_list_embeds(guild_id: str) -> dict:
-    return load_embeds(guild_id)
-
-
-def api_save_embed(guild_id: str, embed_id: str | None, embed_data: dict) -> str:
-    """Create or update an embed. Returns the embed ID."""
-    embeds = load_embeds(guild_id)
-    eid = embed_id or str(uuid.uuid4())
-    embed_data["id"] = eid
-    embeds[eid] = embed_data
-    save_embeds(guild_id, embeds)
-    return eid
-
-
-def api_delete_embed(guild_id: str, embed_id: str) -> bool:
-    embeds = load_embeds(guild_id)
-    if embed_id not in embeds:
-        return False
-    del embeds[embed_id]
-    save_embeds(guild_id, embeds)
-    return True
 
 
 async def setup(client):

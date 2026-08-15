@@ -575,17 +575,21 @@ class Music(commands.Cog):
         print(f"{Timestamp()} [{vc.guild.name}] Disconnected (cleanup).")
 
     async def _resolve_queue_background(self, gp: GuildPlayer, entries: list[dict], requester):
-        for i, entry in enumerate(entries):
+        sem = asyncio.Semaphore(4)  # cap concurrent lookups so we don't get rate-limited
+
+        async def _resolve_one(i: int, entry: dict):
             url = entry.get('url') or entry.get('webpage_url', '')
             if not url:
-                continue
-            try:
-                data = await _extract_single(url)
-                if data and i < len(gp.queue):
-                    gp.queue[i] = Song(data, requester)
-            except Exception:
-                pass
-            await asyncio.sleep(0.3)
+                return
+            async with sem:
+                try:
+                    data = await _extract_single(url)
+                    if data and i < len(gp.queue):
+                        gp.queue[i] = Song(data, requester)
+                except Exception:
+                    pass
+
+        await asyncio.gather(*(_resolve_one(i, entry) for i, entry in enumerate(entries)))
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before, after):
