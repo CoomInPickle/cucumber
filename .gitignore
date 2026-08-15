@@ -137,3 +137,4 @@ dmypy.json
 config/cookies.txt
 config/ig_session_*
 data/guilds
+config/*.json
