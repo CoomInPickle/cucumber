@@ -9,7 +9,7 @@ import io as _io
 import subprocess
 import tempfile
 from io import BytesIO
-from data.ytdlp_pool import extract_single as _extract_single
+from data.ytdlp_pool import extract_generic as _extract_generic
 from data.variables import Timestamp
 
 INSTAGRAM_PATTERN = re.compile(
@@ -309,7 +309,7 @@ class Instagram(commands.Cog):
         files = []
         label = "post"
 
-        info = await _extract_single(clean_url)
+        info = await _extract_generic(clean_url)
         if info:
             entries = info.get("entries") or [info]
             entries = [e for e in entries if e]

@@ -45,17 +45,23 @@ YTDL_FLAT_OPTIONS = {
     'extract_flat': 'in_playlist',
 }
 
+GENERIC_OPTIONS = {
+    **YTDL_OPTIONS,
+    'format': 'bestvideo+bestaudio/best',
+}
+
 # Built once per worker process by _worker_init, then reused for every task
 # that lands on that worker.
 _ytdl = None
 _ytdl_flat = None
+_ytdl_generic = None
 
 
 def _worker_init():
-    global _ytdl, _ytdl_flat
+    global _ytdl, _ytdl_flat, _ytdl_generic
     _ytdl = yt_dlp.YoutubeDL(YTDL_OPTIONS)
     _ytdl_flat = yt_dlp.YoutubeDL(YTDL_FLAT_OPTIONS)
-
+    _ytdl_generic = yt_dlp.YoutubeDL(GENERIC_OPTIONS)
 
 def _worker_extract_single(query: str):
     try:
@@ -83,6 +89,19 @@ def _worker_extract_playlist_flat(url: str):
         return []
 
 
+def _worker_extract_generic(query: str):
+    try:
+        info = _ytdl_generic.extract_info(query, download=False)
+        if info is None:
+            return None
+        if 'entries' in info:
+            entries = [e for e in info['entries'] if e]
+            return entries[0] if entries else None
+        return info
+    except Exception as e:
+        print(f"{Timestamp()} [yt-dlp] generic extract error: {e}")
+        return None
+
 _pool: ProcessPoolExecutor | None = None
 
 
@@ -105,3 +124,8 @@ async def extract_single(query: str):
 async def extract_playlist_flat(url: str):
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(get_pool(), _worker_extract_playlist_flat, url)
+
+
+async def extract_generic(query: str):
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(get_pool(), _worker_extract_generic, query)
