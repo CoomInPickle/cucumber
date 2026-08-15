@@ -4,6 +4,7 @@ from discord.ext import commands
 from PIL import Image, ImageDraw, ImageFont
 import io
 import aiohttp
+import asyncio
 import random
 import re
 import textwrap
@@ -15,6 +16,51 @@ FONT_PATH = (
     if platform.system() == "Windows"
     else "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
 )
+
+
+def _build_quote_image(avatar_bytes: bytes, quote_text: str, display_name: str) -> io.BytesIO:
+    """All the CPU-heavy Pillow work, kept in a plain sync function so it can be
+    run in a thread (see quote() below) instead of blocking the event loop."""
+    size = 800
+    half = size // 2
+
+    avatar_img = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA").resize((size, size))
+
+    # Left-to-right gradient mask: dark on left, transparent on right side reversed
+    gradient = Image.new("L", (size, 1))
+    for x in range(size):
+        alpha = int(255 * (x / half)) if x < half else 255
+        gradient.putpixel((x, 0), alpha)
+
+    alpha_mask    = gradient.resize((size, size))
+    black_overlay = Image.new("RGBA", (size, size), (0, 0, 0, 255))
+    black_overlay.putalpha(alpha_mask)
+
+    img  = Image.alpha_composite(avatar_img, black_overlay)
+    draw = ImageDraw.Draw(img)
+
+    try:
+        font = ImageFont.truetype(FONT_PATH, 32)
+    except OSError:
+        font = ImageFont.load_default()
+
+    wrapped = textwrap.wrap(f'"{quote_text}"', width=20)
+    bbox    = draw.textbbox((0, 0), "A", font=font)
+    line_h  = (bbox[3] - bbox[1]) + 6
+    total_h = len(wrapped) * line_h + 30
+    y       = (size - total_h) // 2
+    x       = half + 20
+
+    for line in wrapped:
+        draw.text((x, y), line, font=font, fill="white")
+        y += line_h
+
+    draw.text((x, y + 10), f"– {display_name}", font=font, fill="white")
+
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0)
+    return buf
 
 
 class Quote(commands.Cog):
@@ -48,53 +94,15 @@ class Quote(commands.Cog):
 
         quote_text, user, msg = random.choice(quotes)
 
-        # fetch avatar 
+        # fetch avatar
         async with aiohttp.ClientSession() as session:
             async with session.get(user.display_avatar.replace(size=512).url) as resp:
                 avatar_bytes = await resp.read()
 
-        # compose image 
-        size = 800
-        half = size // 2
-
-        avatar_img = Image.open(io.BytesIO(avatar_bytes)).convert("RGBA").resize((size, size))
-
-        # Left-to-right gradient mask: dark on left, transparent on right side reversed
-        gradient = Image.new("L", (size, 1))
-        for x in range(size):
-            alpha = int(255 * (x / half)) if x < half else 255
-            gradient.putpixel((x, 0), alpha)
-
-        alpha_mask    = gradient.resize((size, size))
-        black_overlay = Image.new("RGBA", (size, size), (0, 0, 0, 255))
-        black_overlay.putalpha(alpha_mask)
-
-        img  = Image.alpha_composite(avatar_img, black_overlay)
-        draw = ImageDraw.Draw(img)
-
-        try:
-            font = ImageFont.truetype(FONT_PATH, 32)
-        except OSError:
-            font = ImageFont.load_default()
-
-        wrapped      = textwrap.wrap(f'"{quote_text}"', width=20)
-        bbox         = draw.textbbox((0, 0), "A", font=font)
-        line_h       = (bbox[3] - bbox[1]) + 6
-        total_h      = len(wrapped) * line_h + 30
-        y            = (size - total_h) // 2
-        x            = half + 20
-
-        for line in wrapped:
-            draw.text((x, y), line, font=font, fill="white")
-            y += line_h
-
-        draw.text((x, y + 10), f"– {user.display_name}", font=font, fill="white")
+        # compose image off the event loop, in a worker thread
+        buf = await asyncio.to_thread(_build_quote_image, avatar_bytes, quote_text, user.display_name)
 
         # send
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        buf.seek(0)
-
         msg_url = f"https://discord.com/channels/{msg.guild.id}/{msg.channel.id}/{msg.id}"
         await interaction.followup.send(
             content=msg_url,

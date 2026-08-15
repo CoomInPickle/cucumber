@@ -9,7 +9,7 @@ import io as _io
 import subprocess
 import tempfile
 from io import BytesIO
-from yt_dlp import YoutubeDL
+from data.ytdlp_pool import extract_single as _extract_single
 from data.variables import Timestamp
 
 INSTAGRAM_PATTERN = re.compile(
@@ -200,14 +200,6 @@ class Instagram(commands.Cog):
 
         return await asyncio.to_thread(_download)
 
-    def _extract_ytdlp(self, url: str) -> dict | None:
-        with YoutubeDL(YDL_OPTS) as ydl:
-            try:
-                return ydl.extract_info(url, download=False)
-            except Exception as e:
-                print(f"{Timestamp()} [Instagram] yt-dlp error: {e}")
-                return None
-
     def _is_video(self, info: dict) -> bool:
         if info.get("ext") in ("mp4", "mov", "webm", "mkv"):
             return True
@@ -317,7 +309,7 @@ class Instagram(commands.Cog):
         files = []
         label = "post"
 
-        info = await asyncio.to_thread(self._extract_ytdlp, clean_url)
+        info = await _extract_single(clean_url)
         if info:
             entries = info.get("entries") or [info]
             entries = [e for e in entries if e]

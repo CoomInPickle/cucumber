@@ -1,14 +1,15 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import yt_dlp
 import asyncio
 import audioop
 import time
 import json
 import os
 import shlex
+import difflib
 from data.variables import Timestamp
+from data.ytdlp_pool import extract_single as _extract_single, extract_playlist_flat as _extract_playlist_flat
 
 FFMPEG_OPTIONS = {
     'options': '-vn',
@@ -17,35 +18,6 @@ FFMPEG_OPTIONS = {
         '-reconnect_on_network_error 1 -reconnect_on_http_error 403,429'
     )
 }
-
-YTDL_OPTIONS = {
-    'format': 'bestaudio[abr<=96]/bestaudio/best',
-    'outtmpl': '%(extractor)s-%(id)s-%(title)s.%(ext)s',
-    'restrictfilenames': True,
-    'noplaylist': False,
-    'ignoreerrors': True,
-    'logtostderr': False,
-    'quiet': True,
-    'no_warnings': True,
-    'default_search': 'ytsearch',
-    'source_address': '0.0.0.0',
-    'cookiefile': 'config/cookies.txt',
-    'skip_download': True,
-    'socket_timeout': 10,
-    'retries': 3,
-    'concurrent_fragment_downloads': 4,
-    'extractor_args': {
-        'youtubepot-bgutilhttp': {'base_url': ['http://bgutil-provider:4416']},
-    },
-}
-
-YTDL_FLAT_OPTIONS = {
-    **YTDL_OPTIONS,
-    'extract_flat': 'in_playlist',
-}
-
-ytdl      = yt_dlp.YoutubeDL(YTDL_OPTIONS)
-ytdl_flat = yt_dlp.YoutubeDL(YTDL_FLAT_OPTIONS)
 
 EMOJI_PAUSE = "<:play_pause:1496237032538898574>"
 EMOJI_PLAY  = "<:play:1496534605245841549>"
@@ -167,6 +139,21 @@ def _clean_title(raw: str) -> str:
     return title.strip(' -\u2013\u2014')
 
 
+def _same_song(a_title: str, b_title: str, a_dur: int, b_dur: int) -> bool:
+    """
+    Rough check that two yt-dlp search results are actually the same track.
+    Used to decide whether it's safe to mix the audio from one search result
+    with the title/thumbnail from another — if they don't match, doing that
+    gives you the wrong song with the "right" thumbnail.
+    """
+    if a_dur and b_dur and abs(a_dur - b_dur) > 12:
+        return False
+    ratio = difflib.SequenceMatcher(
+        None, _clean_title(a_title).lower(), _clean_title(b_title).lower()
+    ).ratio()
+    return ratio >= 0.55
+
+
 class Song:
     __slots__ = ('title', 'url', 'webpage_url', 'thumbnail', 'duration', 'requester', 'http_headers')
 
@@ -193,7 +180,7 @@ class Song:
 
         if is_url:
             # Direct URL — just resolve normally, no metadata enrichment needed
-            data = await asyncio.to_thread(_extract_single, query)
+            data = await _extract_single(query)
             if data is None:
                 raise ValueError(f"Could not resolve: {query}")
             return cls(data, requester)
@@ -205,8 +192,8 @@ class Song:
         official_query = f"{query} official"
 
         lyrics_data, official_data = await asyncio.gather(
-            asyncio.to_thread(_extract_single, lyrics_query),
-            asyncio.to_thread(_extract_single, official_query),
+            _extract_single(lyrics_query),
+            _extract_single(official_query),
             return_exceptions=True
         )
 
@@ -219,14 +206,24 @@ class Song:
         if isinstance(base, Exception) or base is None:
             raise ValueError(f"Could not resolve: {query}")
 
-        # Overlay title and thumbnail from the official result if we got one
-        if (official_data
-                and not isinstance(official_data, Exception)
-                and lyrics_data
-                and not isinstance(lyrics_data, Exception)):
+        # Overlay title and thumbnail from the official result — but ONLY if it's
+        # actually the same song as what we're about to play. The lyrics search and
+        # official search are two independent YouTube searches; if their top hits
+        # aren't the same track, mixing them gives you the wrong audio with a
+        # mismatched (but "correct-looking") title/thumbnail.
+        have_both = (
+            official_data and not isinstance(official_data, Exception)
+            and lyrics_data and not isinstance(lyrics_data, Exception)
+        )
+        if have_both and _same_song(
+            lyrics_data.get('title', ''), official_data.get('title', ''),
+            lyrics_data.get('duration') or 0, official_data.get('duration') or 0,
+        ):
             base = dict(base)   # don't mutate the original
             base['title']     = official_data.get('title', base.get('title', 'Unknown'))
             base['thumbnail'] = _best_thumbnail(official_data) or base.get('thumbnail', '')
+        # else: keep base's own title/thumbnail — self-consistent with the audio
+        # that's actually going to play.
 
         return cls(base, requester)
 
@@ -254,32 +251,6 @@ def _best_thumbnail(data: dict) -> str:
             return url
 
     return data.get('thumbnail', '')
-
-
-def _extract_single(query: str) -> dict | None:
-    try:
-        info = ytdl.extract_info(query, download=False)
-        if info is None:
-            return None
-        if 'entries' in info:
-            entries = [e for e in info['entries'] if e]
-            return entries[0] if entries else None
-        return info
-    except Exception as e:
-        print(f"{Timestamp()} [yt-dlp] extract error: {e}")
-        return None
-
-
-async def _extract_playlist_flat(url: str) -> list[dict]:
-    try:
-        info = await asyncio.to_thread(lambda: ytdl_flat.extract_info(url, download=False))
-        if info is None:
-            return []
-        entries = info.get('entries', [info])
-        return [e for e in entries if e]
-    except Exception as e:
-        print(f"{Timestamp()} [yt-dlp] playlist extract error: {e}")
-        return []
 
 
 class GuildPlayer:
@@ -609,7 +580,7 @@ class Music(commands.Cog):
             if not url:
                 continue
             try:
-                data = await asyncio.to_thread(_extract_single, url)
+                data = await _extract_single(url)
                 if data and i < len(gp.queue):
                     gp.queue[i] = Song(data, requester)
             except Exception:
@@ -721,8 +692,8 @@ class Music(commands.Cog):
         is_playlist = len(flat) > 1
 
         if is_playlist:
-            first_data = await asyncio.to_thread(
-                _extract_single, flat[0].get('url') or flat[0].get('webpage_url', ''))
+            first_data = await _extract_single(
+                flat[0].get('url') or flat[0].get('webpage_url', ''))
             if not first_data:
                 return await interaction.followup.send("Couldn't load first track.", ephemeral=True)
             first_song = Song(first_data, interaction.user)

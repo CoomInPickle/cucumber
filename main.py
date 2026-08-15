@@ -17,8 +17,7 @@ discord.utils.setup_logging(level=logging.INFO, root=False)
 @tasks.loop(minutes=3)
 async def change_status():
     try:
-        joke = Joking.DarkJoke()
-
+        joke = await asyncio.to_thread(Joking.DarkJoke)
         if joke:
             await client.change_presence(
                 activity=discord.Game(name=str(joke)[:120])

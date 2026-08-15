@@ -29,7 +29,7 @@ class Radio(commands.Cog):
         if vid:
             return vid
         try:
-            data = await asyncio.to_thread(_extract_single, f"ytsearch1:{song.title}")
+            data = await _extract_single(f"ytsearch1:{song.title}")
             if data:
                 return self._yt_id(data.get("webpage_url", ""))
         except Exception:
@@ -84,8 +84,7 @@ class Radio(commands.Cog):
             self._seeds[guild_id] = new_seed
 
         try:
-            data = await asyncio.to_thread(
-                _extract_single, chosen.get("url") or chosen.get("webpage_url", ""))
+            data = await _extract_single(chosen.get("url") or chosen.get("webpage_url", ""))
             if data:
                 return Song(data, current_song.requester)
         except Exception as e:
@@ -127,7 +126,7 @@ class Radio(commands.Cog):
 
                 entry_url = chosen.get("url") or chosen.get("webpage_url", "")
                 try:
-                    data = await asyncio.to_thread(_extract_single, entry_url)
+                    data = await _extract_single(entry_url)
                     if data:
                         song = Song(data, current_song.requester)
                         gp.radio_preview.append(song)
