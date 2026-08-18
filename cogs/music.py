@@ -10,6 +10,11 @@ import shlex
 import difflib
 from data.variables import Timestamp
 from data.ytdlp_pool import extract_single as _extract_single, extract_playlist_flat as _extract_playlist_flat
+from data.spotify import (
+    is_spotify_url as _is_spotify_url,
+    resolve as _resolve_spotify,
+    is_enabled_for_guild as _spotify_enabled_for_guild,
+)
 
 FFMPEG_OPTIONS = {
     'options': '-vn',
@@ -591,6 +596,81 @@ class Music(commands.Cog):
 
         await asyncio.gather(*(_resolve_one(i, entry) for i, entry in enumerate(entries)))
 
+    async def _resolve_spotify_queue_background(self, gp: GuildPlayer, queries: list[str], requester):
+        """Same idea as _resolve_queue_background, but for Spotify-sourced tracks —
+        each 'entry' here is just a search string, not a yt-dlp flat-playlist entry,
+        so it goes through Song.resolve() (a real YouTube search) instead of a
+        direct URL extraction."""
+        sem = asyncio.Semaphore(4)  # cap concurrent YouTube searches so we don't get rate-limited
+
+        async def _resolve_one(i: int, search_query: str):
+            async with sem:
+                try:
+                    song = await Song.resolve(search_query, requester)
+                    if i < len(gp.queue):
+                        gp.queue[i] = song
+                except Exception:
+                    pass
+
+        await asyncio.gather(*(_resolve_one(i, q) for i, q in enumerate(queries)))
+
+    async def _play_from_spotify(self, interaction: discord.Interaction, vc: discord.VoiceClient,
+                                  gp: GuildPlayer, guild_id: int, url: str):
+        """Handles a /play call where the query was a Spotify track/playlist/album
+        link. Spotify never gives out actual audio, so this just turns the link
+        into one or more "Artist - Title" search strings and resolves each one on
+        YouTube exactly like a normal text search — see data/spotify.py."""
+        try:
+            queries = await _resolve_spotify(url)
+        except Exception as e:
+            return await interaction.followup.send(f"Couldn't read that Spotify link: {e}", ephemeral=True)
+
+        if not queries:
+            return await interaction.followup.send(
+                "Couldn't find anything at that Spotify link. Make sure "
+                "SPOTIFY_CLIENT_ID/SPOTIFY_CLIENT_SECRET are set correctly.", ephemeral=True)
+
+        if len(queries) == 1:
+            try:
+                song = await Song.resolve(queries[0], interaction.user)
+            except Exception as e:
+                return await interaction.followup.send(f"Error: {e}", ephemeral=True)
+
+            if vc.is_playing() or vc.is_paused() or gp.queue:
+                gp.queue.append(song)
+                await interaction.followup.send(f"Added **{song.title}** to queue (position {len(gp.queue)}).")
+            else:
+                await interaction.followup.send(f"Playing **{song.title}**")
+                await self._play_song(vc, song, guild_id)
+            return
+
+        # Playlist/album — resolve the first track now so playback can start
+        # immediately, queue placeholder stubs for the rest, and fill those in
+        # for real in the background (same pattern used for YouTube playlists).
+        try:
+            first_song = await Song.resolve(queries[0], interaction.user)
+        except Exception as e:
+            return await interaction.followup.send(f"Couldn't resolve the first track: {e}", ephemeral=True)
+
+        for search_query in queries[1:]:
+            stub             = Song.__new__(Song)
+            stub.title       = search_query
+            stub.url         = ''
+            stub.webpage_url = ''
+            stub.thumbnail   = ''
+            stub.duration    = 0
+            stub.requester   = interaction.user
+            gp.queue.append(stub)
+
+        asyncio.create_task(self._resolve_spotify_queue_background(gp, queries[1:], interaction.user))
+
+        if vc.is_playing() or vc.is_paused():
+            gp.queue.insert(0, first_song)
+            await interaction.followup.send(f"Added Spotify playlist — **{len(queries)} tracks** to queue.")
+        else:
+            await interaction.followup.send(f"Loaded Spotify playlist — **{len(queries)} tracks**.")
+            await self._play_song(vc, first_song, guild_id)
+
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before, after):
         vc = member.guild.voice_client
@@ -685,6 +765,14 @@ class Music(commands.Cog):
         gp.text_channel = interaction.channel
 
         is_url = query.startswith('http://') or query.startswith('https://')
+
+        if is_url and await _is_spotify_url(query):
+            if not _spotify_enabled_for_guild(guild_id):
+                return await interaction.followup.send(
+                    "Spotify links aren't enabled for this server. "
+                    "An admin can turn them on from the dashboard.", ephemeral=True)
+            return await self._play_from_spotify(interaction, vc, gp, guild_id, query)
+
         flat   = await _extract_playlist_flat(query)
 
         # For text queries that resolve to a single track, try album search as fallback
