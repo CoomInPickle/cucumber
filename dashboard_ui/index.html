@@ -572,6 +572,16 @@ tr:last-child td { border-bottom: none; }
           </div>
         </div>
       </div>
+
+      <div class="panel">
+        <div class="panel-head">Spotify Links <span style="font-size:10px;color:var(--sub);font-weight:400;text-transform:none;letter-spacing:0">this server only</span></div>
+        <div class="panel-body">
+          <div class="row">
+            <div><div class="row-label">Enable Spotify links</div><div class="row-sub">Let /play accept open.spotify.com track/playlist/album links.</div></div>
+            <label class="tog"><input type="checkbox" id="sp-on" onchange="saveSpotifySettings()"><span class="slider"></span></label>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- EQ -->
@@ -680,7 +690,7 @@ function nav(name) {
   clearInterval(logInterval);
   if (name === 'autorole')  loadAutorole();
   if (name === 'embeds')    loadEmbedList();
-  if (name === 'music')     loadMusic();
+  if (name === 'music')     { loadMusic(); loadSpotifySettings(); }
   if (name === 'eq')        loadEq();
   if (name === 'cogs')      loadCogs();
   if (name === 'log') { fetchLog(); logInterval = setInterval(fetchLog, 2000); }
@@ -723,6 +733,7 @@ async function switchGuild(gid) {
     const name = active.id.replace('page-', '');
     if (name === 'autorole') loadAutorole();
     if (name === 'embeds')   loadEmbedList();
+    if (name === 'music')    loadSpotifySettings();
   }
 }
 function buildRolePicker() {
@@ -801,6 +812,17 @@ async function loadMusic() {
 }
 async function saveMusic() {
   const ok = await apiPost('/api/settings', { defaults: { crossfade: document.getElementById('mu-cf').checked, radio: document.getElementById('mu-radio').checked, loop: document.getElementById('mu-loop').checked, loop_queue: document.getElementById('mu-lq').checked }, crossfade_duration: parseFloat(document.getElementById('mu-dur').value) });
+  ok ? toast('saved') : toast('save failed', 'err');
+}
+
+async function loadSpotifySettings() {
+  if (!currentGuild) return;
+  const data = await apiFetch(`/api/guild/${currentGuild}/spotify`);
+  document.getElementById('sp-on').checked = !!(data && data.enabled);
+}
+async function saveSpotifySettings() {
+  if (!currentGuild) return toast('select a server first', 'err');
+  const ok = await apiPost(`/api/guild/${currentGuild}/spotify`, { enabled: document.getElementById('sp-on').checked });
   ok ? toast('saved') : toast('save failed', 'err');
 }
 

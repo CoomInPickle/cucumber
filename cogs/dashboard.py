@@ -18,8 +18,6 @@ LOG_MAX_LINES   = 500
 _log_buffer: deque = deque(maxlen=LOG_MAX_LINES)
 
 
-# ── log capture ───────────────────────────────────────────────────────────────
-
 class _LogHandler(logging.Handler):
     def emit(self, record: logging.LogRecord):
         _log_buffer.append(self.format(record))
@@ -57,8 +55,6 @@ def _install_log_capture():
         sys.stdout = _StdoutCapture(sys.stdout)
 
 
-# ── storage helpers ───────────────────────────────────────────────────────────
-
 def _load_json(path: str, default):
     try:
         if os.path.exists(path):
@@ -95,8 +91,6 @@ def _save_guild(guild_id: str, filename: str, data):
     _save_json(_guild_path(guild_id, filename), data)
 
 
-# ── other helpers   ───────────────────────────────────────────────────────────
-
 def safe_url(url):
     if not url:
         return None
@@ -107,8 +101,6 @@ def safe_url(url):
         return url
 
     return None
-
-# ── aiohttp helpers ───────────────────────────────────────────────────────────
 
 def _cors(resp: web.Response) -> web.Response:
     resp.headers["Access-Control-Allow-Origin"]  = "*"
@@ -124,8 +116,6 @@ def json_resp(data, status=200) -> web.Response:
         content_type="application/json",
     ))
 
-
-# ── cog ───────────────────────────────────────────────────────────────────────
 
 class Dashboard(commands.Cog):
     def __init__(self, client: commands.Bot):
@@ -170,12 +160,14 @@ class Dashboard(commands.Cog):
         r.add_get ("/api/guild/{gid}/autoresponder", self._api_get_autoresponder)
         r.add_post("/api/guild/{gid}/autoresponder", self._api_set_autoresponder)
 
+        # per-guild: spotify
+        r.add_get ("/api/guild/{gid}/spotify", self._api_get_spotify)
+        r.add_post("/api/guild/{gid}/spotify", self._api_set_spotify)
+
         # per-guild: embeds  (name-keyed: {name: embedData})
         r.add_get ("/api/guild/{gid}/embeds",         self._api_get_embeds)
         r.add_post("/api/guild/{gid}/embeds",         self._api_set_embeds)
         r.add_post("/api/guild/{gid}/embeds/send",    self._api_send_embed)
-
-    # ── static ────────────────────────────────────────────────────────────────
 
     async def _serve_ui(self, request: web.Request) -> web.Response:
         ui_path = os.path.join(os.path.dirname(__file__), "..", "dashboard_ui", "index.html")
@@ -187,8 +179,6 @@ class Dashboard(commands.Cog):
 
     async def _options(self, request: web.Request) -> web.Response:
         return _cors(web.Response(status=204))
-
-    # ── bot-level ─────────────────────────────────────────────────────────────
 
     async def _api_status(self, request: web.Request) -> web.Response:
         music_cog = self.client.get_cog("Music")
@@ -231,8 +221,6 @@ class Dashboard(commands.Cog):
         asyncio.create_task(_do_restart())
         return json_resp({"ok": True})
 
-    # ── cogs ──────────────────────────────────────────────────────────────────
-
     async def _api_get_cogs(self, request: web.Request) -> web.Response:
         result = {}
         cogs_dir = os.path.join(os.path.dirname(__file__), "..", "cogs")
@@ -270,8 +258,6 @@ class Dashboard(commands.Cog):
                 results[name] = f"error: {e}"
                 print(f"{Timestamp()} [Dashboard] Cog toggle error for {name}: {e}")
         return json_resp({"ok": True, "results": results})
-
-    # ── music / eq ────────────────────────────────────────────────────────────
 
     async def _api_get_settings(self, request: web.Request) -> web.Response:
         return json_resp(_load_json(SETTINGS_PATH, {}))
@@ -316,8 +302,6 @@ class Dashboard(commands.Cog):
             eq_cog.presets = presets
         return json_resp({"ok": True})
 
-    # ── per-guild helpers ─────────────────────────────────────────────────────
-
     def _guild(self, request: web.Request) -> discord.Guild | None:
         return self.client.get_guild(int(request.match_info["gid"]))
 
@@ -340,8 +324,6 @@ class Dashboard(commands.Cog):
         channels.sort(key=lambda c: c["name"])
         return json_resp(channels)
 
-    # ── autorole ──────────────────────────────────────────────────────────────
-
     async def _api_get_autorole(self, request: web.Request) -> web.Response:
         gid = request.match_info["gid"]
         return json_resp(_load_guild(gid, "autorole.json", {"enabled": False, "roles": []}))
@@ -355,8 +337,6 @@ class Dashboard(commands.Cog):
         _save_guild(gid, "autorole.json", body)
         print(f"{Timestamp()} [Dashboard] Autorole updated for {gid}")
         return json_resp({"ok": True})
-
-    # ── autoresponder ─────────────────────────────────────────────────────────
 
     async def _api_get_autoresponder(self, request: web.Request) -> web.Response:
         gid = request.match_info["gid"]
@@ -372,7 +352,20 @@ class Dashboard(commands.Cog):
         print(f"{Timestamp()} [Dashboard] Autoresponder updated for {gid}")
         return json_resp({"ok": True})
 
-    # ── embeds (name-keyed: {name: embedData}) ───────────────────────────────
+    async def _api_get_spotify(self, request: web.Request) -> web.Response:
+        gid = request.match_info["gid"]
+        return json_resp(_load_guild(gid, "spotify.json", {"enabled": False}))
+
+    async def _api_set_spotify(self, request: web.Request) -> web.Response:
+        gid = request.match_info["gid"]
+        try:
+            body = await request.json()
+        except Exception:
+            return json_resp({"error": "Invalid JSON"}, 400)
+        _save_guild(gid, "spotify.json", body)
+        print(f"{Timestamp()} [Dashboard] Spotify links {'enabled' if body.get('enabled') else 'disabled'} for {gid}")
+        return json_resp({"ok": True})
+
 
     async def _api_get_embeds(self, request: web.Request) -> web.Response:
         gid = request.match_info["gid"]
@@ -468,8 +461,6 @@ class Dashboard(commands.Cog):
         except Exception as e:
             return json_resp({"error": str(e)}, 500)
 
-    # ── lifecycle ─────────────────────────────────────────────────────────────
-
     async def start_server(self):
         self._runner = web.AppRunner(self._app)
         await self._runner.setup()
@@ -488,8 +479,6 @@ class Dashboard(commands.Cog):
     def cog_unload(self):
         asyncio.create_task(self.stop_server())
 
-    # ── autorole enforcement ──────────────────────────────────────────────────
-
     @commands.Cog.listener()
     async def on_member_join(self, member: discord.Member):
         gid  = str(member.guild.id)
@@ -507,8 +496,6 @@ class Dashboard(commands.Cog):
                 print(f"{Timestamp()} [Dashboard] Autorole: gave {len(roles_to_add)} role(s) to {member}")
             except discord.Forbidden:
                 print(f"{Timestamp()} [Dashboard] Autorole: missing permissions in {member.guild.name}")
-
-    # ── autoresponder enforcement ─────────────────────────────────────────────
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
