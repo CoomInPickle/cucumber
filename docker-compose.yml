@@ -5,10 +5,12 @@ services:
     image: coominpickle/cucumber:latest
     container_name: cucumber-discord-bot
     environment:
-      BOT_TOKEN: ${BOT_TOKEN}
-      APPLICATION_ID: ${APPLICATION_ID}
-      INSTAGRAM_USERNAME: ${INSTAGRAM_USERNAME}
-      INSTAGRAM_PASSWORD: ${INSTAGRAM_PASSWORD}
+      - BOT_TOKEN=${BOT_TOKEN}  #Bot token from dev portal
+      - APPLICATION_ID=${APPLICATION_ID}  #Application ID	from dev portal
+      - INSTAGRAM_USERNAME=${INSTAGRAM_USERNAME}
+      - INSTAGRAM_PASSWORD=${INSTAGRAM_PASSWORD}
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
       # Optional cog switches, e.g.:
       # INSTAGRAM_COG: "false"
       # QUOTE_COG: "false"
