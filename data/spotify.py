@@ -150,7 +150,7 @@ async def resolve(url: str) -> list[str]:
 
     if playlist_match:
         queries = []
-        path   = f"/playlists/{playlist_match.group(1)}/tracks"
+        path   = f"/playlists/{playlist_match.group(1)}/items"
         params = {"limit": 100, "fields": "items(track(name,artists(name))),next"}
         while path:
             data = await _api_get(path, params)
