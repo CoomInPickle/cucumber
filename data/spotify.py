@@ -115,6 +115,48 @@ async def _api_get(path: str, params: dict | None = None) -> dict | None:
         return None
 
 
+_NEXT_DATA_RE = re.compile(
+    r'<script id="__NEXT_DATA__" type="application/json">(.+?)</script>',
+    re.DOTALL
+)
+
+
+async def _scrape_embed_playlist(playlist_id: str) -> list[str]:
+    url = f"https://open.spotify.com/embed/playlist/{playlist_id}"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status != 200:
+                    print(f"{Timestamp()} [Spotify] Embed page HTTP {resp.status} for playlist {playlist_id}")
+                    return []
+                html = await resp.text()
+    except Exception as e:
+        print(f"{Timestamp()} [Spotify] Embed page fetch error: {e}")
+        return []
+
+    match = _NEXT_DATA_RE.search(html)
+    if not match:
+        print(f"{Timestamp()} [Spotify] Could not find embed data for playlist {playlist_id}")
+        return []
+
+    try:
+        data = json.loads(match.group(1))
+        tracks = data["props"]["pageProps"]["state"]["data"]["entity"]["trackList"]
+    except (KeyError, TypeError, json.JSONDecodeError):
+        print(f"{Timestamp()} [Spotify] Unexpected embed page structure for playlist {playlist_id}")
+        return []
+
+    queries = []
+    for track in tracks:
+        title = track.get("title")
+        subtitle = track.get("subtitle")
+        if title and subtitle:
+            queries.append(f"{subtitle} - {title}")
+        elif title:
+            queries.append(title)
+    return queries
+
+
 def _track_query(track: dict | None) -> str | None:
     if not track:
         return None
@@ -149,20 +191,7 @@ async def resolve(url: str) -> list[str]:
         return [query] if query else []
 
     if playlist_match:
-        queries = []
-        path   = f"/playlists/{playlist_match.group(1)}/items"
-        params = {"limit": 100, "fields": "items(track(name,artists(name))),next"}
-        while path:
-            data = await _api_get(path, params)
-            if not data:
-                break
-            for item in data.get("items", []):
-                query = _track_query(item.get("track"))
-                if query:
-                    queries.append(query)
-            path   = data.get("next") or None
-            params = None  # 'next' already has query params baked into the URL
-        return queries
+        return await _scrape_embed_playlist(playlist_match.group(1))
 
     if album_match:
         queries = []
