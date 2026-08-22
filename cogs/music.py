@@ -665,17 +665,20 @@ class Music(commands.Cog):
         except Exception as e:
             return await interaction.followup.send(f"Couldn't resolve the first track: {e}", ephemeral=True)
 
+        stubs = []
         for search_query in queries[1:]:
-            stub             = Song.__new__(Song)
-            stub.title       = search_query
-            stub.url         = ''
-            stub.webpage_url = ''
-            stub.thumbnail   = ''
-            stub.duration    = 0
-            stub.requester   = interaction.user
+            stub               = Song.__new__(Song)
+            stub.title         = search_query
+            stub.url           = ''
+            stub.webpage_url   = ''
+            stub.thumbnail     = ''
+            stub.duration      = 0
+            stub.requester     = interaction.user
+            stub.http_headers  = {}
             gp.queue.append(stub)
+            stubs.append(stub)
 
-        asyncio.create_task(self._resolve_spotify_queue_background(gp, queries[1:], interaction.user))
+        asyncio.create_task(self._resolve_spotify_queue_background(gp, stubs, queries[1:], interaction.user))
 
         if vc.is_playing() or vc.is_paused():
             gp.queue.insert(0, first_song)
