@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 import asyncio
 import audioop
+import random
 import time
 import json
 import os
@@ -745,8 +746,11 @@ class Music(commands.Cog):
         await interaction.response.send_message("👋 Cya Later.")
 
     @app_commands.command(name="play", description="Play a song, album, or playlist from a URL or search.")
-    @app_commands.describe(query="URL, album name, or search term")
-    async def play(self, interaction: discord.Interaction, query: str):
+    @app_commands.describe(
+        query="URL, album name, or search term",
+        priority="Insert this song next in the queue instead of at the end"
+    )
+    async def play(self, interaction: discord.Interaction, query: str, priority: bool = False):
         if not interaction.user.voice:
             return await interaction.response.send_message("Join a voice channel first.", ephemeral=True)
 
@@ -813,11 +817,25 @@ class Music(commands.Cog):
             return await interaction.followup.send(f"Error: {e}", ephemeral=True)
 
         if vc.is_playing() or vc.is_paused() or gp.queue:
-            gp.queue.append(song)
-            await interaction.followup.send(f"Added **{song.title}** to queue (position {len(gp.queue)}).")
+            if priority:
+                gp.queue.insert(0, song)
+                await interaction.followup.send(f"⏫ **{song.title}** added to the front of the queue.")
+            else:
+                gp.queue.append(song)
+                await interaction.followup.send(f"Added **{song.title}** to queue (position {len(gp.queue)}).")
         else:
             await interaction.followup.send(f"Playing **{song.title}**")
             await self._play_song(vc, song, guild_id)
+
+    @app_commands.command(name="shuffle", description="Shuffle the current queue.")
+    async def shuffle(self, interaction: discord.Interaction):
+        gp = self.get_player(interaction.guild.id)
+        if not gp.queue:
+            return await interaction.response.send_message("Queue is empty.", ephemeral=True)
+        random.shuffle(gp.queue)
+        await interaction.response.send_message(
+            f"🔀 Shuffled **{len(gp.queue)}** song(s).", ephemeral=True
+        )
 
     @app_commands.command(name="skip", description="Skip the current song.")
     async def skip(self, interaction: discord.Interaction):

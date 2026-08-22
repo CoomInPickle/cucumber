@@ -61,11 +61,12 @@ Cogs can be disabled by adding `<NAME>_COG=false` to your environment variables.
 
 ## Music
 
-`/play` plays a song, playlist, or album. You can paste a YouTube/playlist URL or just search by name — album searches work too, e.g. `/play Dark Side of the Moon`. The first track starts immediately and the rest load in the background.
+`/play` plays a song, playlist, or album. You can paste a YouTube/playlist URL or just search by name — album searches work too, e.g. `/play Dark Side of the Moon`. Add `priority:true` to insert a single track at the front of the queue instead of the end. The first track starts immediately and the rest load in the background.
 
 `/skip` — skip current song  
 `/back` — go back to previous song  
 `/queue` — show the queue. If radio mode is on, preloaded radio songs show in a separate section at the bottom.  
+`/shuffle` — randomly shuffle the current queue  
 `/nowplaying` — show what's playing  
 `/loop` — loop current song  
 `/loopqueue` — loop the whole queue  
