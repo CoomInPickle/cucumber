@@ -580,40 +580,52 @@ class Music(commands.Cog):
         await vc.disconnect()
         print(f"{Timestamp()} [{vc.guild.name}] Disconnected (cleanup).")
 
-    async def _resolve_queue_background(self, gp: GuildPlayer, entries: list[dict], requester):
+    async def _resolve_queue_background(self, gp: GuildPlayer, stubs: list['Song'], entries: list[dict], requester):
         sem = asyncio.Semaphore(4)  # cap concurrent lookups so we don't get rate-limited
 
-        async def _resolve_one(i: int, entry: dict):
+        async def _resolve_one(stub: 'Song', entry: dict):
             url = entry.get('url') or entry.get('webpage_url', '')
             if not url:
                 return
             async with sem:
                 try:
                     data = await _extract_single(url)
-                    if data and i < len(gp.queue):
-                        gp.queue[i] = Song(data, requester)
+                    if not data:
+                        return
+                    # Match by identity, not position — the queue may have been
+                    # shuffled or edited since this stub was queued.
+                    try:
+                        idx = gp.queue.index(stub)
+                    except ValueError:
+                        return  # stub is no longer in the queue (removed/cleared)
+                    gp.queue[idx] = Song(data, requester)
                 except Exception:
                     pass
 
-        await asyncio.gather(*(_resolve_one(i, entry) for i, entry in enumerate(entries)))
+        await asyncio.gather(*(_resolve_one(stub, entry) for stub, entry in zip(stubs, entries)))
 
-    async def _resolve_spotify_queue_background(self, gp: GuildPlayer, queries: list[str], requester):
+    async def _resolve_spotify_queue_background(self, gp: GuildPlayer, stubs: list['Song'], queries: list[str], requester):
         """Same idea as _resolve_queue_background, but for Spotify-sourced tracks —
         each 'entry' here is just a search string, not a yt-dlp flat-playlist entry,
         so it goes through Song.resolve() (a real YouTube search) instead of a
         direct URL extraction."""
         sem = asyncio.Semaphore(4)  # cap concurrent YouTube searches so we don't get rate-limited
 
-        async def _resolve_one(i: int, search_query: str):
+        async def _resolve_one(stub: 'Song', search_query: str):
             async with sem:
                 try:
                     song = await Song.resolve(search_query, requester)
-                    if i < len(gp.queue):
-                        gp.queue[i] = song
+                    # Match by identity, not position — the queue may have been
+                    # shuffled or edited since this stub was queued.
+                    try:
+                        idx = gp.queue.index(stub)
+                    except ValueError:
+                        return  # stub is no longer in the queue (removed/cleared)
+                    gp.queue[idx] = song
                 except Exception:
                     pass
 
-        await asyncio.gather(*(_resolve_one(i, q) for i, q in enumerate(queries)))
+        await asyncio.gather(*(_resolve_one(stub, q) for stub, q in zip(stubs, queries)))
 
     async def _play_from_spotify(self, interaction: discord.Interaction, vc: discord.VoiceClient,
                                   gp: GuildPlayer, guild_id: int, url: str):
