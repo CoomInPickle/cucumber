@@ -16,7 +16,10 @@ from data.spotify import (
     resolve as _resolve_spotify,
     is_enabled_for_guild as _spotify_enabled_for_guild,
 )
-
+from data.deezer import (
+    is_deezer_url as _is_deezer_url,
+    resolve as _resolve_deezer,
+)
 FFMPEG_OPTIONS = {
     'options': '-vn',
     'before_options': (
