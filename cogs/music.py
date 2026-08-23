@@ -416,13 +416,25 @@ class Music(commands.Cog):
         )
 
     async def _play_song(self, vc: discord.VoiceClient, song: Song, guild_id: int,
-                          crossfade_from: discord.PCMVolumeTransformer | None = None):
-        gp            = self.get_player(guild_id)
-        gp.current    = song
+                         crossfade_from: discord.PCMVolumeTransformer | None = None):
+        gp = self.get_player(guild_id)
+
+        # Spotify/Deezer stubs start as just a search-string title with no url —
+        # if playback reaches one before the background resolver gets to it
+        # (e.g. shuffle + fast skip), resolve it here instead of trying to
+        # play an empty audio source.
+        if not song.url and not song.webpage_url:
+            try:
+                song = await Song.resolve(song.title, song.requester)
+            except Exception as e:
+                print(f"{Timestamp()} [Music] On-demand resolve failed for '{song.title}': {e}")
+                return await self._advance(vc, guild_id)
+
+        gp.current = song
         gp.start_time = time.time()
-        gp.paused     = False
-        gp.fading     = False
-        gp.next_song  = None
+        gp.paused = False
+        gp.fading = False
+        gp.next_song = None
 
         eq_cog    = self.client.get_cog("Equalizer")
         eq_filter = eq_cog.eq_settings.get(guild_id, "") if eq_cog else ""
