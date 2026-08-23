@@ -65,6 +65,26 @@ async def _api_get(path: str) -> dict | None:
         return None
 
 
+async def _api_get_full_url(url: str) -> dict | None:
+    """Same as _api_get but takes a full URL — used for the 'next' pagination
+    links Deezer returns on playlist/album track listings, which are already
+    complete URLs rather than API paths."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                if resp.status != 200:
+                    print(f"{Timestamp()} [Deezer] Pagination error {resp.status} for {url}")
+                    return None
+                data = await resp.json()
+                if isinstance(data, dict) and data.get("error"):
+                    print(f"{Timestamp()} [Deezer] Pagination returned error for {url}: {data['error']}")
+                    return None
+                return data
+    except Exception as e:
+        print(f"{Timestamp()} [Deezer] Pagination request error: {e}")
+        return None
+
+
 def _track_query(track: dict | None) -> str | None:
     if not track:
         return None
