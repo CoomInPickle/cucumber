@@ -21,15 +21,16 @@ API_BASE = "https://api.deezer.com"
 #   https://www.deezer.com/track/1234567890
 #   https://www.deezer.com/en/album/1234567890
 #   https://www.deezer.com/fr/playlist/1234567890
-# Short links: deezer.page.link/xxxx, dzr.page.link/xxxx (redirect to the above)
+# Short links (what the mobile app / share sheet actually gives you):
+#   https://link.deezer.com/s/34c5NsxOOiokY3YAfSvoE
 _TRACK_RE    = re.compile(r"deezer\.com/(?:\w{2}/)?track/(\d+)")
 _ALBUM_RE    = re.compile(r"deezer\.com/(?:\w{2}/)?album/(\d+)")
 _PLAYLIST_RE = re.compile(r"deezer\.com/(?:\w{2}/)?playlist/(\d+)")
-_SHORT_RE    = re.compile(r"(?:deezer|dzr)\.page\.link/")
+_SHORT_RE    = re.compile(r"link\.deezer\.com/")
 
 
 async def _resolve_short_link(url: str) -> str:
-    """deezer.page.link/xxxx and dzr.page.link/xxxx just redirect to a normal deezer.com URL."""
+    """link.deezer.com/s/xxxx just redirects to a normal deezer.com URL."""
     async with aiohttp.ClientSession() as session:
         async with session.get(url, allow_redirects=True, timeout=aiohttp.ClientTimeout(total=10)) as resp:
             return str(resp.url)
