@@ -687,6 +687,64 @@ class Music(commands.Cog):
             await interaction.followup.send(f"Loaded Spotify playlist — **{len(queries)} tracks**.")
             await self._play_song(vc, first_song, guild_id)
 
+    async def _play_from_deezer(self, interaction: discord.Interaction, vc: discord.VoiceClient,
+                                gp: GuildPlayer, guild_id: int, url: str):
+        """Handles a /play call where the query was a Deezer track/album/playlist
+        link. Same idea as _play_from_spotify — Deezer doesn't hand out audio,
+        so this turns the link into "Artist - Title" search strings and resolves
+        each one on YouTube like a normal text search. See data/deezer.py."""
+        try:
+            queries = await _resolve_deezer(url)
+        except Exception as e:
+            return await interaction.followup.send(f"Couldn't read that Deezer link: {e}", ephemeral=True)
+
+        if not queries:
+            return await interaction.followup.send(
+                "Couldn't find anything at that Deezer link.", ephemeral=True)
+
+        if len(queries) == 1:
+            try:
+                song = await Song.resolve(queries[0], interaction.user)
+            except Exception as e:
+                return await interaction.followup.send(f"Error: {e}", ephemeral=True)
+
+            if vc.is_playing() or vc.is_paused() or gp.queue:
+                gp.queue.append(song)
+                await interaction.followup.send(f"Added **{song.title}** to queue (position {len(gp.queue)}).")
+            else:
+                await interaction.followup.send(f"Playing **{song.title}**")
+                await self._play_song(vc, song, guild_id)
+            return
+
+        try:
+            first_song = await Song.resolve(queries[0], interaction.user)
+        except Exception as e:
+            return await interaction.followup.send(f"Couldn't resolve the first track: {e}", ephemeral=True)
+
+        stubs = []
+        for search_query in queries[1:]:
+            stub = Song.__new__(Song)
+            stub.title = search_query
+            stub.url = ''
+            stub.webpage_url = ''
+            stub.thumbnail = ''
+            stub.duration = 0
+            stub.requester = interaction.user
+            stub.http_headers = {}
+            gp.queue.append(stub)
+            stubs.append(stub)
+
+        asyncio.create_task(self._resolve_spotify_queue_background(gp, stubs, queries[1:], interaction.user))
+
+        if vc.is_playing() or vc.is_paused():
+            gp.queue.insert(0, first_song)
+            await interaction.followup.send(
+                f"Added Deezer {'album' if len(queries) else ''} — **{len(queries)} tracks** to queue.")
+        else:
+            await interaction.followup.send(f"Loaded Deezer — **{len(queries)} tracks**.")
+            await self._play_song(vc, first_song, guild_id)
+
+
     @commands.Cog.listener()
     async def on_voice_state_update(self, member: discord.Member, before, after):
         vc = member.guild.voice_client
