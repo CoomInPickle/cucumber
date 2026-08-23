@@ -853,6 +853,10 @@ class Music(commands.Cog):
                     "An admin can turn them on from the dashboard.", ephemeral=True)
             return await self._play_from_spotify(interaction, vc, gp, guild_id, query)
 
+        if is_url and await _is_deezer_url(query):
+            return await self._play_from_deezer(interaction, vc, gp, guild_id, query)
+
+        flat   = await _extract_playlist_flat(query)
         flat   = await _extract_playlist_flat(query)
 
         # For text queries that resolve to a single track, try album search as fallback
