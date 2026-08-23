@@ -236,6 +236,20 @@ class Song:
 
         return cls(base, requester)
 
+    @classmethod
+    async def resolve_fast(cls, query: str, requester=None) -> 'Song':
+        """Single-search resolve — used when playback lands on an unresolved
+        Spotify/Deezer stub (e.g. shuffle + fast skip) and needs something
+        playable immediately. Skips the lyrics+official double-search that
+        Song.resolve() normally does, since that doubles yt-dlp process-pool
+        load at exactly the moment it's already under pressure from the
+        background resolver. The background resolver will still overwrite
+        this queue slot with the fully-enriched version once it gets to it."""
+        data = await _extract_single(f"ytsearch1:{query}")
+        if data is None:
+            raise ValueError(f"Could not resolve: {query}")
+        return cls(data, requester)
+
 
 def _best_thumbnail(data: dict) -> str:
     """Pick the highest-resolution thumbnail from a yt-dlp info dict."""
@@ -416,21 +430,23 @@ class Music(commands.Cog):
         )
 
     async def _play_song(self, vc: discord.VoiceClient, song: Song, guild_id: int,
-                         crossfade_from: discord.PCMVolumeTransformer | None = None):
+                          crossfade_from: discord.PCMVolumeTransformer | None = None):
         gp = self.get_player(guild_id)
 
         # Spotify/Deezer stubs start as just a search-string title with no url —
         # if playback reaches one before the background resolver gets to it
         # (e.g. shuffle + fast skip), resolve it here instead of trying to
-        # play an empty audio source.
+        # play an empty audio source. Uses resolve_fast (single search) rather
+        # than the full lyrics+official double-search, since that doubles
+        # yt-dlp process-pool load at exactly the moment it's already busy.
         if not song.url and not song.webpage_url:
             try:
-                song = await Song.resolve(song.title, song.requester)
+                song = await Song.resolve_fast(song.title, song.requester)
             except Exception as e:
                 print(f"{Timestamp()} [Music] On-demand resolve failed for '{song.title}': {e}")
                 return await self._advance(vc, guild_id)
 
-        gp.current = song
+        gp.current    = song
         gp.start_time = time.time()
         gp.paused = False
         gp.fading = False
