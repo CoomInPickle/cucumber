@@ -34,9 +34,9 @@ CLIENT_SECRET = os.getenv("SPOTIFY_CLIENT_SECRET")
 TOKEN_URL = "https://accounts.spotify.com/api/token"
 API_BASE  = "https://api.spotify.com/v1"
 
-_TRACK_RE    = re.compile(r"open\.spotify\.com/track/([A-Za-z0-9]+)")
-_PLAYLIST_RE = re.compile(r"open\.spotify\.com/playlist/([A-Za-z0-9]+)")
-_ALBUM_RE    = re.compile(r"open\.spotify\.com/album/([A-Za-z0-9]+)")
+_TRACK_RE    = re.compile(r"open\.spotify\.com/(?:intl-\w+/)?track/([A-Za-z0-9]+)")
+_PLAYLIST_RE = re.compile(r"open\.spotify\.com/(?:intl-\w+/)?playlist/([A-Za-z0-9]+)")
+_ALBUM_RE    = re.compile(r"open\.spotify\.com/(?:intl-\w+/)?album/([A-Za-z0-9]+)")
 _SHORT_RE    = re.compile(r"spotify\.link/")
 
 # Cached app access token — client-credentials tokens are shared across all
