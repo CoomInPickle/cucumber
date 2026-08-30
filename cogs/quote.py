@@ -9,6 +9,7 @@ import random
 import re
 import textwrap
 import platform
+import time
 
 QUOTE_PATTERN = re.compile(r'[""\'\'"](.+?)[""\'\'\"]\s*(?:-*\s*)?(<@!?\d+>)?', re.DOTALL)
 FONT_PATH = (
@@ -66,6 +67,8 @@ def _build_quote_image(avatar_bytes: bytes, quote_text: str, display_name: str) 
 class Quote(commands.Cog):
     def __init__(self, client: commands.Bot):
         self.client = client
+        self._quote_cache = {}  # channel_id -> (fetched_at, quotes list)
+        self._cache_ttl = 600   # re-scan the channel at most every 10 min
 
     @app_commands.command(name="quote", description="Show a random quote image from the #quotes channel.")
     async def quote(self, interaction: discord.Interaction):
@@ -78,16 +81,24 @@ class Quote(commands.Cog):
         if not quotes_channel:
             return await interaction.followup.send("Couldn't find a `#quotes` channel.")
 
-        messages = [m async for m in quotes_channel.history(limit=None)]
-        quotes   = []
+        now    = time.time()
+        cached = self._quote_cache.get(quotes_channel.id)
 
-        for msg in messages:
-            for text, mention in QUOTE_PATTERN.findall(msg.content):
-                text = text.strip()
-                if not text:
-                    continue
-                user = msg.mentions[0] if msg.mentions else msg.author
-                quotes.append((text, user, msg))
+        if cached and now - cached[0] < self._cache_ttl:
+            quotes = cached[1]
+        else:
+            messages = [m async for m in quotes_channel.history(limit=None)]
+            quotes   = []
+
+            for msg in messages:
+                for text, mention in QUOTE_PATTERN.findall(msg.content):
+                    text = text.strip()
+                    if not text:
+                        continue
+                    user = msg.mentions[0] if msg.mentions else msg.author
+                    quotes.append((text, user, msg))
+
+            self._quote_cache[quotes_channel.id] = (now, quotes)
 
         if not quotes:
             return await interaction.followup.send("No valid quotes found in the quotes channel.")

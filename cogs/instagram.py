@@ -319,11 +319,15 @@ class Instagram(commands.Cog):
             if len(entries) > 1:
                 label = "post"
 
+            urls = []
             for entry in entries[:10]:
                 media_url, ext = self._pick_url(entry)
-                if not media_url:
-                    continue
-                buf = await self._download_url(media_url)
+                if media_url:
+                    urls.append((media_url, ext))
+
+            results = await asyncio.gather(*(self._download_url(u) for u, _ in urls))
+
+            for (_, ext), buf in zip(urls, results):
                 if buf:
                     files.append(discord.File(buf, filename=f"instagram.{ext}"))
 

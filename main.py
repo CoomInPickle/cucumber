@@ -33,6 +33,7 @@ async def on_ready():
         change_status.start()
 
 @client.command(name="sync")
+@commands.is_owner()
 async def sync(ctx):
     try:
         synced = await client.tree.sync()
@@ -40,6 +41,11 @@ async def sync(ctx):
         await ctx.message.add_reaction("\N{THUMBS UP SIGN}")
     except Exception as e:
         print(f"{Timestamp()} Failed to sync commands: {e}")
+        await ctx.message.add_reaction("\N{CROSS MARK}")
+
+@sync.error
+async def sync_error(ctx, error):
+    if isinstance(error, commands.NotOwner):
         await ctx.message.add_reaction("\N{CROSS MARK}")
 
 async def load():

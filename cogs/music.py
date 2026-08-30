@@ -884,13 +884,17 @@ class Music(commands.Cog):
         if is_url and await _is_deezer_url(query):
             return await self._play_from_deezer(interaction, vc, gp, guild_id, query)
 
-        flat   = await _extract_playlist_flat(query)
-        flat   = await _extract_playlist_flat(query)
-
-        # For text queries that resolve to a single track, try album search as fallback
-        if len(flat) <= 1 and not is_url:
-            album_flat = await _extract_playlist_flat(f"ytsearch1:{query} full album")
-            if len(album_flat) > 1:
+        if is_url:
+            flat = await _extract_playlist_flat(query)
+        else:
+            # run the normal search and the "full album" fallback search at the
+            # same time instead of one after another - saves a full round trip
+            # on every plain text /play
+            flat, album_flat = await asyncio.gather(
+                _extract_playlist_flat(query),
+                _extract_playlist_flat(f"ytsearch1:{query} full album"),
+            )
+            if len(flat) <= 1 and len(album_flat) > 1:
                 flat = album_flat
 
         is_playlist = len(flat) > 1

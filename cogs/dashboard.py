@@ -13,7 +13,19 @@ SETTINGS_PATH   = "config/settings.json"
 EQ_PRESETS_PATH = "config/eq_presets.json"
 GUILDS_DIR      = "data/guilds"
 DASHBOARD_PORT  = int(os.getenv("DASHBOARD_PORT", 8080))
+DASHBOARD_TOKEN = os.getenv("DASHBOARD_TOKEN")
 LOG_MAX_LINES   = 500
+
+
+@web.middleware
+async def _auth_middleware(request, handler):
+    if not DASHBOARD_TOKEN:
+        return await handler(request)
+    if request.method == "OPTIONS" or request.path == "/":
+        return await handler(request)
+    if request.headers.get("X-Dashboard-Token") != DASHBOARD_TOKEN:
+        return json_resp({"error": "Unauthorized"}, 401)
+    return await handler(request)
 
 _log_buffer: deque = deque(maxlen=LOG_MAX_LINES)
 
@@ -120,7 +132,7 @@ def json_resp(data, status=200) -> web.Response:
 class Dashboard(commands.Cog):
     def __init__(self, client: commands.Bot):
         self.client  = client
-        self._app    = web.Application()
+        self._app    = web.Application(middlewares=[_auth_middleware])
         self._runner = None
         self._site   = None
         _install_log_capture()
