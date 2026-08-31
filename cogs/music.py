@@ -36,7 +36,7 @@ EMOJI_NEXT  = "<:next:1496237059940028437>"
 EMOJI_STOP  = "<:stop:1496536014620201235>"
 
 FRAME_SIZE    = 3840  # discord.py PCM frame size (20ms @ 48kHz stereo 16-bit)
-SETTINGS_PATH = "config/settings.json"
+GUILDS_DIR    = "data/guilds"
 
 _DEFAULT_SETTINGS = {
     "defaults": {
@@ -48,10 +48,20 @@ _DEFAULT_SETTINGS = {
     "crossfade_duration": 6.0,
 }
 
-def _load_settings() -> dict:
-    if os.path.exists(SETTINGS_PATH):
+
+def _music_settings_path(guild_id) -> str:
+    return os.path.join(GUILDS_DIR, str(guild_id), "music_settings.json")
+
+
+def _load_settings(guild_id) -> dict:
+    """Per-guild music defaults (crossfade/radio/loop/loop_queue + fade duration),
+    configured from the dashboard's Music Settings page. Re-read on every
+    GuildPlayer creation so a fresh /play after editing them picks up the change.
+    Falls back to _DEFAULT_SETTINGS for any guild that hasn't customized these yet."""
+    path = _music_settings_path(guild_id)
+    if os.path.exists(path):
         try:
-            with open(SETTINGS_PATH) as f:
+            with open(path) as f:
                 data = json.load(f)
             # Fill in any missing keys from defaults so old config files still work
             merged = dict(_DEFAULT_SETTINGS)
@@ -59,13 +69,8 @@ def _load_settings() -> dict:
             merged["crossfade_duration"] = data.get("crossfade_duration", _DEFAULT_SETTINGS["crossfade_duration"])
             return merged
         except Exception as e:
-            print(f"[Config] Failed to load settings.json: {e}, using defaults")
+            print(f"{Timestamp()} [Config] Failed to load music_settings.json for {guild_id}: {e}, using defaults")
     return dict(_DEFAULT_SETTINGS)
-
-# Loaded once at import time. The Music cog re-reads this on each GuildPlayer creation
-# so a restart picks up any changes.
-_SETTINGS = _load_settings()
-FADE_DURATION: float = _SETTINGS["crossfade_duration"]
 
 
 class MixedSource(discord.AudioSource):
@@ -78,11 +83,12 @@ class MixedSource(discord.AudioSource):
     """
 
     def __init__(self, src_a: discord.PCMVolumeTransformer,
-                 src_b: discord.PCMVolumeTransformer):
+                 src_b: discord.PCMVolumeTransformer,
+                 fade_duration: float = 6.0):
         self.src_a   = src_a
         self.src_b   = src_b
         # How many frames make up the full fade window
-        self._total  = int(FADE_DURATION * 50)   # 50 frames per second
+        self._total  = int(fade_duration * 50)   # 50 frames per second
         self._frame  = 0
         self._done   = False   # True when src_a is fully faded out
 
@@ -278,8 +284,8 @@ def _best_thumbnail(data: dict) -> str:
 
 
 class GuildPlayer:
-    def __init__(self):
-        cfg = _load_settings()   # re-read on each player creation so restarts pick up changes
+    def __init__(self, guild_id: int):
+        cfg = _load_settings(guild_id)   # per-guild — re-read on each player creation
         d   = cfg.get("defaults", {})
 
         self.queue:         list[Song]                 = []
@@ -295,6 +301,7 @@ class GuildPlayer:
         self.eq_swapping:   bool  = False
         self.paused:        bool  = False
         self.fade:          bool  = bool(d.get("crossfade",  False))
+        self.fade_duration: float = float(cfg.get("crossfade_duration", 6.0))
         self.fading:        bool  = False
         self.next_song:     Song | None = None
         self._fade_task:    asyncio.Task | None = None
@@ -359,7 +366,7 @@ class Music(commands.Cog):
 
     def get_player(self, guild_id: int) -> GuildPlayer:
         if guild_id not in self._players:
-            self._players[guild_id] = GuildPlayer()
+            self._players[guild_id] = GuildPlayer(guild_id)
         return self._players[guild_id]
 
     def _build_embed(self, song: Song, gp: GuildPlayer, vc: discord.VoiceClient) -> discord.Embed:
@@ -460,7 +467,7 @@ class Music(commands.Cog):
 
         if crossfade_from is not None:
             # Wrap both sources in the mixer — no vc.stop() needed
-            source = MixedSource(crossfade_from, new_src)
+            source = MixedSource(crossfade_from, new_src, gp.fade_duration)
         else:
             source = new_src
 
@@ -484,8 +491,8 @@ class Music(commands.Cog):
                 asyncio.create_task(radio_cog.preload(guild_id, song))
 
         # Schedule the crossfade trigger if fade is on and duration is known
-        if gp.fade and song.duration > FADE_DURATION + 2:
-            trigger_at = song.duration - FADE_DURATION
+        if gp.fade and song.duration > gp.fade_duration + 2:
+            trigger_at = song.duration - gp.fade_duration
             if gp._fade_task:
                 gp._fade_task.cancel()
             gp._fade_task = asyncio.create_task(
@@ -1072,7 +1079,7 @@ class Music(commands.Cog):
         return {gid: p.queue for gid, p in self._players.items()}
 
     def get_current(self, guild_id: int) -> Song | None:
-        return self._players.get(guild_id, GuildPlayer()).current
+        return self._players.get(guild_id, GuildPlayer(guild_id)).current
 
 
 async def setup(client):

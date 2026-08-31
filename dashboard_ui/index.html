@@ -742,7 +742,7 @@ async function switchGuild(gid) {
     if (name === 'autorole')    loadAutorole();
     if (name === 'embeds')      loadEmbedList();
     if (name === 'permissions') loadPermissions();
-    if (name === 'music')       loadSpotifySettings();
+    if (name === 'music')       { loadMusic(); loadSpotifySettings(); }
   }
 }
 function buildRolePicker() {
@@ -808,7 +808,8 @@ async function saveAutorole() {
 
 // ── music ─────────────────────────────────────────────────────────────────
 async function loadMusic() {
-  const data = await apiFetch('/api/settings');
+  if (!currentGuild) return;
+  const data = await apiFetch(`/api/guild/${currentGuild}/music_settings`);
   if (!data) return;
   const d = data.defaults || {};
   document.getElementById('mu-cf').checked    = !!d.crossfade;
@@ -820,7 +821,8 @@ async function loadMusic() {
   document.getElementById('mu-dur-v').textContent = dur + 's';
 }
 async function saveMusic() {
-  const ok = await apiPost('/api/settings', { defaults: { crossfade: document.getElementById('mu-cf').checked, radio: document.getElementById('mu-radio').checked, loop: document.getElementById('mu-loop').checked, loop_queue: document.getElementById('mu-lq').checked }, crossfade_duration: parseFloat(document.getElementById('mu-dur').value) });
+  if (!currentGuild) return toast('select a server first', 'err');
+  const ok = await apiPost(`/api/guild/${currentGuild}/music_settings`, { defaults: { crossfade: document.getElementById('mu-cf').checked, radio: document.getElementById('mu-radio').checked, loop: document.getElementById('mu-loop').checked, loop_queue: document.getElementById('mu-lq').checked }, crossfade_duration: parseFloat(document.getElementById('mu-dur').value) });
   ok ? toast('saved') : toast('save failed', 'err');
 }
 

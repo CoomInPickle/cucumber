@@ -9,7 +9,6 @@ from collections import deque
 from aiohttp import web
 from data.variables import Timestamp
 
-SETTINGS_PATH   = "config/settings.json"
 EQ_PRESETS_PATH = "config/eq_presets.json"
 GUILDS_DIR      = "data/guilds"
 DASHBOARD_PORT  = int(os.getenv("DASHBOARD_PORT", 8080))
@@ -153,9 +152,7 @@ class Dashboard(commands.Cog):
         r.add_get ("/api/cogs",     self._api_get_cogs)
         r.add_post("/api/cogs",     self._api_set_cogs)
 
-        # bot-level music / eq
-        r.add_get ("/api/settings", self._api_get_settings)
-        r.add_post("/api/settings", self._api_set_settings)
+        # bot-level eq
         r.add_get ("/api/eq",       self._api_get_eq)
         r.add_post("/api/eq",       self._api_set_eq)
         r.add_post("/api/eq/delete",self._api_delete_eq)
@@ -176,14 +173,18 @@ class Dashboard(commands.Cog):
         r.add_get ("/api/guild/{gid}/spotify", self._api_get_spotify)
         r.add_post("/api/guild/{gid}/spotify", self._api_set_spotify)
 
+        # per-guild: permissions (generic framework — {category: {enabled, roles}})
+        r.add_get ("/api/guild/{gid}/permissions", self._api_get_permissions)
+        r.add_post("/api/guild/{gid}/permissions", self._api_set_permissions)
+
+        # per-guild: music settings (crossfade/radio/loop/loop_queue defaults)
+        r.add_get ("/api/guild/{gid}/music_settings", self._api_get_music_settings)
+        r.add_post("/api/guild/{gid}/music_settings", self._api_set_music_settings)
+
         # per-guild: embeds  (name-keyed: {name: embedData})
         r.add_get ("/api/guild/{gid}/embeds",         self._api_get_embeds)
         r.add_post("/api/guild/{gid}/embeds",         self._api_set_embeds)
         r.add_post("/api/guild/{gid}/embeds/send",    self._api_send_embed)
-
-        # per-guild: permissions (generic framework — {category: {enabled, roles}})
-        r.add_get ("/api/guild/{gid}/permissions", self._api_get_permissions)
-        r.add_post("/api/guild/{gid}/permissions", self._api_set_permissions)
 
     async def _serve_ui(self, request: web.Request) -> web.Response:
         ui_path = os.path.join(os.path.dirname(__file__), "..", "dashboard_ui", "index.html")
@@ -274,17 +275,6 @@ class Dashboard(commands.Cog):
                 results[name] = f"error: {e}"
                 print(f"{Timestamp()} [Dashboard] Cog toggle error for {name}: {e}")
         return json_resp({"ok": True, "results": results})
-
-    async def _api_get_settings(self, request: web.Request) -> web.Response:
-        return json_resp(_load_json(SETTINGS_PATH, {}))
-
-    async def _api_set_settings(self, request: web.Request) -> web.Response:
-        try:
-            body = await request.json()
-        except Exception:
-            return json_resp({"error": "Invalid JSON"}, 400)
-        _save_json(SETTINGS_PATH, body)
-        return json_resp({"ok": True})
 
     async def _api_get_eq(self, request: web.Request) -> web.Response:
         return json_resp(_load_json(EQ_PRESETS_PATH, {}))
@@ -398,6 +388,23 @@ class Dashboard(commands.Cog):
             return json_resp({"error": "Expected object"}, 400)
         _save_guild(gid, "permissions.json", body)
         print(f"{Timestamp()} [Dashboard] Permissions updated for {gid}")
+        return json_resp({"ok": True})
+
+    async def _api_get_music_settings(self, request: web.Request) -> web.Response:
+        gid = request.match_info["gid"]
+        return json_resp(_load_guild(gid, "music_settings.json", {
+            "defaults": {"crossfade": False, "radio": False, "loop": False, "loop_queue": False},
+            "crossfade_duration": 6.0,
+        }))
+
+    async def _api_set_music_settings(self, request: web.Request) -> web.Response:
+        gid = request.match_info["gid"]
+        try:
+            body = await request.json()
+        except Exception:
+            return json_resp({"error": "Invalid JSON"}, 400)
+        _save_guild(gid, "music_settings.json", body)
+        print(f"{Timestamp()} [Dashboard] Music settings updated for {gid}")
         return json_resp({"ok": True})
 
 
