@@ -24,12 +24,26 @@ services:
       - APPLICATION_ID=${APPLICATION_ID}
       - INSTAGRAM_USERNAME=${INSTAGRAM_USERNAME}
       - INSTAGRAM_PASSWORD=${INSTAGRAM_PASSWORD}
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      # See "Environment Variables" below for everything else you can set —
+      # DASHBOARD_TOKEN, YTDLP_WORKERS, per-cog toggles, etc.
     volumes:
       - ./config:/app/config
+      - ./data/guilds:/app/data/guilds
+    restart: unless-stopped
+
+  bgutil-provider:
+    image: brainicism/bgutil-ytdlp-pot-provider:1.3.1
+    container_name: bgutil-provider
     restart: unless-stopped
 ```
 
 On first start, the bot automatically copies the default config files (including `eq_presets.json`) into your mounted `./config` folder if they're not already there. So just run it and you're good.
+
+`bgutil-provider` is required — it's what yt-dlp uses to fetch YouTube PO tokens. Without it, extraction gets unreliable or fails outright for a lot of content.
+
+The `./data/guilds` mount holds all per-server settings: autorole, saved embeds, autoresponder rules, Spotify link toggle, command permissions, and per-server music defaults. **Without this mount, all of that resets every time the container is recreated** (e.g. pulling a new image) — it's not optional if you want settings to survive updates.
 
 ### Cookies (optional but recommended)
 
@@ -44,7 +58,40 @@ The path inside the container is `config/cookies.txt`, which is what yt-dlp look
 
 If you don't want to use cookies at all, just don't add the file — the bot will still work for most content.
 
-### Disabling Cogs
+## Environment Variables
+
+### Required
+
+| Variable | Description |
+|---|---|
+| `BOT_TOKEN` | Your bot's token from the [Discord Developer Portal](https://discord.com/developers/applications). |
+| `APPLICATION_ID` | Your application's ID from the same portal page. |
+
+### Optional — features
+
+| Variable | Default | Description |
+|---|---|---|
+| `INSTAGRAM_USERNAME` / `INSTAGRAM_PASSWORD` | — | Instagram login used by the `instaloader` fallback in the Instagram cog. Without these, yt-dlp is still tried first, but anything it can't grab (most photos, some carousels) will be skipped. See the [Instagram](#instagram) section. |
+| `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` | — | Client-credentials app keys from the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard). No user login needed. Without these, Spotify links are just treated as a normal text search instead of being resolved properly. Spotify link support also needs to be toggled on per-server from the dashboard even once these are set. |
+
+### Optional — dashboard
+
+| Variable | Default | Description |
+|---|---|---|
+| `DASHBOARD_PORT` | `8080` | Port the web dashboard listens on inside the container. |
+| `DASHBOARD_TOKEN` | — | If set, every dashboard API request must include this value in an `X-Dashboard-Token` header. Leave unset for local/trusted networks; set it if you're exposing the dashboard port beyond your own machine. |
+
+### Optional — performance
+
+| Variable | Default | Description |
+|---|---|---|
+| `YTDLP_WORKERS` | `3` | Number of worker processes in the yt-dlp extraction pool (see `data/ytdlp_pool.py`). Each worker builds its own `YoutubeDL` instance and runs extraction in a separate process so it doesn't fight the voice-audio thread for the GIL. Raise this if you're running several servers with heavy concurrent `/play` usage and have the CPU to spare; lower it on constrained hosts. |
+
+### Optional — disabling cogs
+
+See [Disabling Cogs](#disabling-cogs) below — one `<NAME>_COG=false` variable per cog.
+
+## Disabling Cogs
 
 Cogs can be disabled by adding `<NAME>_COG=false` to your environment variables. Useful if you don't want the Instagram or Quotes features.
 
@@ -58,6 +105,35 @@ Cogs can be disabled by adding `<NAME>_COG=false` to your environment variables.
 | music_radio  | -    |
 | quote        | -    |
 | system       | -    |
+| embeds       | saved-embed manager (`/embed`, `/embeds`) |
+| dashboard    | disables the entire web dashboard |
+
+## Dashboard
+
+The bot ships with a web dashboard (aiohttp, served from inside the bot process) at `http://<host>:8080` by default. It gives you a UI for everything that would otherwise need editing config files or restarting the bot:
+
+- **Status** — servers, latency, what's currently playing.
+- **Auto Role** — roles automatically assigned to new members.
+- **Auto Responder** — trigger/response rules per server.
+- **Embeds** — build and send custom embeds with a live preview, or trigger them via `/embed`.
+- **Permissions** — restrict who can use certain command groups to specific roles (currently covers music commands — see [Permissions](#permissions) below).
+- **Music Settings** — per-server defaults for crossfade, radio, loop, loop queue, crossfade duration, and the Spotify-links toggle.
+- **EQ Presets** — add/remove `/eq` presets, hot-reloaded into the running bot.
+- **Cog Manager** — load/unload cogs at runtime without a restart.
+- **Log** — live tail of the bot's console output.
+
+Set `DASHBOARD_TOKEN` if you're exposing the port outside a trusted network — every dashboard route except loading the page itself will require it.
+
+## Permissions
+
+Certain command groups can be restricted to specific roles, per server, from the **Permissions** tab of the dashboard. Right now this covers music commands (`/play`, `/skip`, `/loop`, EQ commands, `/radio`, etc.) — turning it on lets you pick which roles are allowed to use them.
+
+A few notes on how it behaves:
+
+- Off by default — with the toggle disabled, anyone can use the commands, same as before.
+- Server admins (Administrator / Manage Server permission) and the server owner can always use gated commands, even with the restriction on, so you can't accidentally lock yourself out.
+- If you enable the restriction but haven't picked any roles yet, only admins/owner can use the commands until you add some.
+- This is a general framework under the hood, so more command groups may get their own permission toggle here in the future.
 
 ## Music
 
@@ -76,6 +152,8 @@ Cogs can be disabled by adding `<NAME>_COG=false` to your environment variables.
 
 The player embed has four buttons: back, play/pause, skip, and a red stop button that disconnects the bot.
 
+Default behavior for crossfade/radio/loop/loop queue, and the crossfade duration, can be set per-server from the dashboard's **Music Settings** tab.
+
 ### Radio
 
 `/radio` toggles radio mode on and off. When on, the bot automatically continues playing related songs when the queue runs out — it doesn't spam your queue, it just picks the next song when needed. Two songs are preloaded in the background so transitions are smooth.
@@ -90,7 +168,7 @@ Radio mode is shown in the now-playing embed and in `/queue`. Enabling loop or q
 `/eq_custom` — manual controls for bass, treble, speed, pitch, reverb  
 `/eq_clear` — reset to flat  
 
-Presets are customizable via the `eq_presets.json` file in your config folder. The file comes with a few examples to copy.
+Presets are customizable via the `eq_presets.json` file in your config folder, or from the dashboard's **EQ Presets** tab. The file comes with a few examples to copy.
 
 | Filter       | Example                               | Effect                  |
 |--------------|---------------------------------------|-------------------------|
@@ -107,7 +185,7 @@ Presets are customizable via the `eq_presets.json` file in your config folder. T
 
 ### Crossfade
 
-`/fade` toggles crossfade between songs. When enabled, the current song fades out in the last few seconds and the next one starts immediately — similar to how Spotify handles it.
+`/fade` toggles crossfade between songs. When enabled, the current song fades out in the last few seconds and the next one starts immediately — similar to how Spotify handles it. The default on/off state and the fade duration are configurable per-server from the dashboard.
 
 ## Queue system
 
@@ -132,12 +210,7 @@ If media can't be downloaded, the bot falls back to reposting a clean version of
 The bot tries two methods in order:
 
 1. **yt-dlp** — works for reels and some public content. Uses `config/cookies.txt` if present.
-2. **Instaloader** — fallback for photos and anything yt-dlp can't grab. Requires Instagram credentials set in your environment:
-
-```
-INSTAGRAM_USERNAME=your_username
-INSTAGRAM_PASSWORD=your_password
-```
+2. **Instaloader** — fallback for photos and anything yt-dlp can't grab. Requires `INSTAGRAM_USERNAME`/`INSTAGRAM_PASSWORD` (see [Environment Variables](#environment-variables)).
 
 On startup the bot logs in and saves a session file to `config/ig_session_<username>`. On subsequent restarts it reuses that session instead of logging in again. Don't delete it.
 

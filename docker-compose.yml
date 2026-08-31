@@ -14,8 +14,14 @@ services:
       # Optional cog switches, e.g.:
       # INSTAGRAM_COG: "false"
       # QUOTE_COG: "false"
+      # Optional dashboard settings:
+      # DASHBOARD_PORT: "8080"
+      # DASHBOARD_TOKEN: ""        # require X-Dashboard-Token header on all API routes if set
+      # Optional performance tuning:
+      # YTDLP_WORKERS: "3"         # yt-dlp extraction process pool size
     volumes:
       - ./config:/app/config
+      - ./data/guilds:/app/data/guilds
     restart: unless-stopped
 
   bgutil-provider:
