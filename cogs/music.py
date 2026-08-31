@@ -9,6 +9,7 @@ import json
 import os
 import shlex
 import difflib
+from data.permissions import require
 from data.variables import Timestamp
 from data.ytdlp_pool import extract_single as _extract_single, extract_playlist_flat as _extract_playlist_flat
 from data.spotify import (
@@ -785,6 +786,8 @@ class Music(commands.Cog):
                 await self._cleanup(vc, member.guild.id)
 
     async def toggle_pause_resume(self, interaction: discord.Interaction, btn: discord.ui.Button):
+        if not await require(interaction, "music"):
+            return
         vc = interaction.guild.voice_client
         gp = self.get_player(interaction.guild.id)
         if not vc:
@@ -802,6 +805,8 @@ class Music(commands.Cog):
         await interaction.response.edit_message(view=btn.view)
 
     async def do_skip(self, interaction: discord.Interaction):
+        if not await require(interaction, "music"):
+            return
         vc = interaction.guild.voice_client
         gp = self.get_player(interaction.guild.id)
         if not vc or not (vc.is_playing() or vc.is_paused()):
@@ -826,6 +831,8 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
     async def go_back(self, interaction: discord.Interaction):
+        if not await require(interaction, "music"):
+            return
         gp = self.get_player(interaction.guild.id)
         vc = interaction.guild.voice_client
         if not gp.history:
@@ -843,6 +850,8 @@ class Music(commands.Cog):
         await interaction.response.defer()
 
     async def do_stop(self, interaction: discord.Interaction):
+        if not await require(interaction, "music"):
+            return
         vc = interaction.guild.voice_client
         if not vc:
             return await interaction.response.send_message("Not connected.", ephemeral=True)
@@ -855,6 +864,8 @@ class Music(commands.Cog):
         priority="Insert this song next in the queue instead of at the end"
     )
     async def play(self, interaction: discord.Interaction, query: str, priority: bool = False):
+        if not await require(interaction, "music"):
+            return
         if not interaction.user.voice:
             return await interaction.response.send_message("Join a voice channel first.", ephemeral=True)
 
@@ -941,6 +952,8 @@ class Music(commands.Cog):
 
     @app_commands.command(name="shuffle", description="Shuffle the current queue.")
     async def shuffle(self, interaction: discord.Interaction):
+        if not await require(interaction, "music"):
+            return
         gp = self.get_player(interaction.guild.id)
         if not gp.queue:
             return await interaction.response.send_message("Queue is empty.", ephemeral=True)
@@ -951,6 +964,8 @@ class Music(commands.Cog):
 
     @app_commands.command(name="skip", description="Skip the current song.")
     async def skip(self, interaction: discord.Interaction):
+        if not await require(interaction, "music"):
+            return
         vc = interaction.guild.voice_client
         gp = self.get_player(interaction.guild.id)
         if not vc or not (vc.is_playing() or vc.is_paused()):
@@ -976,6 +991,8 @@ class Music(commands.Cog):
 
     @app_commands.command(name="leave", description="Stop music and leave.")
     async def leave(self, interaction: discord.Interaction):
+        if not await require(interaction, "music"):
+            return
         vc = interaction.guild.voice_client
         if not vc:
             return await interaction.response.send_message("Not connected.", ephemeral=True)
@@ -992,6 +1009,8 @@ class Music(commands.Cog):
 
     @app_commands.command(name="loop", description="Toggle loop for the current song.")
     async def loop_cmd(self, interaction: discord.Interaction):
+        if not await require(interaction, "music"):
+            return
         gp = self.get_player(interaction.guild.id)
         gp.loop = not gp.loop
         if gp.loop:
@@ -1006,6 +1025,8 @@ class Music(commands.Cog):
 
     @app_commands.command(name="loopqueue", description="Toggle loop for the entire queue.")
     async def loopqueue_cmd(self, interaction: discord.Interaction):
+        if not await require(interaction, "music"):
+            return
         gp = self.get_player(interaction.guild.id)
         gp.loop_queue = not gp.loop_queue
         if gp.loop_queue:
@@ -1020,6 +1041,8 @@ class Music(commands.Cog):
 
     @app_commands.command(name="fade", description="Toggle crossfade between songs.")
     async def fade_cmd(self, interaction: discord.Interaction):
+        if not await require(interaction, "music"):
+            return
         gp = self.get_player(interaction.guild.id)
         gp.fade = not gp.fade
         await interaction.response.send_message(
@@ -1028,6 +1051,8 @@ class Music(commands.Cog):
     @app_commands.command(name="remove", description="Remove a song from the queue by position.")
     @app_commands.describe(position="Position in the queue (1 = next up)")
     async def remove(self, interaction: discord.Interaction, position: int):
+        if not await require(interaction, "music"):
+            return
         gp = self.get_player(interaction.guild.id)
         if position < 1 or position > len(gp.queue):
             return await interaction.response.send_message("Invalid position.", ephemeral=True)
@@ -1036,6 +1061,8 @@ class Music(commands.Cog):
 
     @app_commands.command(name="clearqueue", description="Clear the entire queue.")
     async def clearqueue(self, interaction: discord.Interaction):
+        if not await require(interaction, "music"):
+            return
         gp = self.get_player(interaction.guild.id)
         gp.queue.clear()
         await interaction.response.send_message("Queue cleared.", ephemeral=True)

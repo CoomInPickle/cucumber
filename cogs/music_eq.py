@@ -7,6 +7,7 @@ import asyncio
 import time
 from typing import Optional
 from data.variables import Timestamp
+from data.permissions import require
 
 PRESETS_PATH = "config/eq_presets.json"
 
@@ -48,6 +49,8 @@ class Equalizer(commands.Cog):
         Responds to the interaction immediately, then swaps the audio source.
         Must be called before any other response has been sent.
         """
+        if not await require(interaction, "music"):
+            return
         vc = interaction.guild.voice_client
         if not vc or not (vc.is_playing() or vc.is_paused()):
             return await interaction.response.send_message(

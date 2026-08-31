@@ -181,6 +181,10 @@ class Dashboard(commands.Cog):
         r.add_post("/api/guild/{gid}/embeds",         self._api_set_embeds)
         r.add_post("/api/guild/{gid}/embeds/send",    self._api_send_embed)
 
+        # per-guild: permissions (generic framework — {category: {enabled, roles}})
+        r.add_get ("/api/guild/{gid}/permissions", self._api_get_permissions)
+        r.add_post("/api/guild/{gid}/permissions", self._api_set_permissions)
+
     async def _serve_ui(self, request: web.Request) -> web.Response:
         ui_path = os.path.join(os.path.dirname(__file__), "..", "dashboard_ui", "index.html")
         if not os.path.exists(ui_path):
@@ -376,6 +380,24 @@ class Dashboard(commands.Cog):
             return json_resp({"error": "Invalid JSON"}, 400)
         _save_guild(gid, "spotify.json", body)
         print(f"{Timestamp()} [Dashboard] Spotify links {'enabled' if body.get('enabled') else 'disabled'} for {gid}")
+        return json_resp({"ok": True})
+
+
+    async def _api_get_permissions(self, request: web.Request) -> web.Response:
+        gid = request.match_info["gid"]
+        return json_resp(_load_guild(gid, "permissions.json", {}))
+
+    async def _api_set_permissions(self, request: web.Request) -> web.Response:
+        """Replace the entire permissions dict for a guild (category → {enabled, roles})."""
+        gid = request.match_info["gid"]
+        try:
+            body = await request.json()
+        except Exception:
+            return json_resp({"error": "Invalid JSON"}, 400)
+        if not isinstance(body, dict):
+            return json_resp({"error": "Expected object"}, 400)
+        _save_guild(gid, "permissions.json", body)
+        print(f"{Timestamp()} [Dashboard] Permissions updated for {gid}")
         return json_resp({"ok": True})
 
 

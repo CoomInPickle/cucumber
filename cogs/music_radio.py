@@ -5,6 +5,7 @@ import asyncio
 import re
 
 from cogs.music import Song, _extract_single, _extract_playlist_flat
+from data.permissions import require
 
 YT_ID_RE    = re.compile(r"(?:v=|youtu\.be/)([A-Za-z0-9_-]{11})")
 PRELOAD_MAX = 2   # keep this many songs ready in gp.radio_preview
@@ -145,6 +146,8 @@ class Radio(commands.Cog):
     )
     @app_commands.describe(query="Seed song (optional — uses current song if empty)")
     async def radio(self, interaction: discord.Interaction, query: str = ""):
+        if not await require(interaction, "music"):
+            return
         music_cog = self._music()
         if not music_cog:
             return await interaction.response.send_message("Music cog not loaded.", ephemeral=True)

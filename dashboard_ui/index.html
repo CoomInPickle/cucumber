@@ -314,6 +314,7 @@ tr:last-child td { border-bottom: none; }
     <a data-page="autorole"      onclick="nav('autorole')">auto role</a>
     <a data-page="autoresponder" onclick="nav('autoresponder')">auto responder</a>
     <a data-page="embeds"        onclick="nav('embeds')">embeds</a>
+    <a data-page="permissions"   onclick="nav('permissions')">permissions</a>
 
     <div class="nav-group">Music</div>
     <a data-page="music"         onclick="nav('music')">music settings</a>
@@ -550,6 +551,11 @@ tr:last-child td { border-bottom: none; }
       </div>
     </div>
 
+    <!-- PERMISSIONS -->
+    <div class="page" id="page-permissions">
+      <div id="perm-categories"></div>
+    </div>
+
     <!-- MUSIC -->
     <div class="page" id="page-music">
       <div class="panel">
@@ -685,14 +691,15 @@ function nav(name) {
   const isEmbeds = name === 'embeds';
   document.getElementById('content').classList.toggle('log-active', isLog);
   document.getElementById('content').classList.toggle('wide', isEmbeds);
-  const titles = { status:'status', autorole:'auto role', autoresponder:'auto responder', embeds:'embeds', music:'music settings', eq:'eq presets', cogs:'cog manager', log:'log' };
+  const titles = { status:'status', autorole:'auto role', autoresponder:'auto responder', embeds:'embeds', permissions:'permissions', music:'music settings', eq:'eq presets', cogs:'cog manager', log:'log' };
   document.getElementById('page-title').textContent = titles[name] || name;
   clearInterval(logInterval);
-  if (name === 'autorole')  loadAutorole();
-  if (name === 'embeds')    loadEmbedList();
-  if (name === 'music')     { loadMusic(); loadSpotifySettings(); }
-  if (name === 'eq')        loadEq();
-  if (name === 'cogs')      loadCogs();
+  if (name === 'autorole')    loadAutorole();
+  if (name === 'embeds')      loadEmbedList();
+  if (name === 'permissions') loadPermissions();
+  if (name === 'music')       { loadMusic(); loadSpotifySettings(); }
+  if (name === 'eq')          loadEq();
+  if (name === 'cogs')        loadCogs();
   if (name === 'log') { fetchLog(); logInterval = setInterval(fetchLog, 2000); }
 }
 
@@ -728,12 +735,14 @@ async function switchGuild(gid) {
   allChannels = (await apiFetch(`/api/guild/${gid}/channels`)) || [];
   buildRolePicker();
   buildChannelPicker();
+  PERMISSION_CATEGORIES.forEach(cat => buildPermRolePicker(cat.key));
   const active = document.querySelector('.page.active');
   if (active) {
     const name = active.id.replace('page-', '');
-    if (name === 'autorole') loadAutorole();
-    if (name === 'embeds')   loadEmbedList();
-    if (name === 'music')    loadSpotifySettings();
+    if (name === 'autorole')    loadAutorole();
+    if (name === 'embeds')      loadEmbedList();
+    if (name === 'permissions') loadPermissions();
+    if (name === 'music')       loadSpotifySettings();
   }
 }
 function buildRolePicker() {
@@ -823,6 +832,94 @@ async function loadSpotifySettings() {
 async function saveSpotifySettings() {
   if (!currentGuild) return toast('select a server first', 'err');
   const ok = await apiPost(`/api/guild/${currentGuild}/spotify`, { enabled: document.getElementById('sp-on').checked });
+  ok ? toast('saved') : toast('save failed', 'err');
+}
+
+// ── permissions ───────────────────────────────────────────────────────────
+// Add a new entry here for each new gated category — the panel, role picker,
+// and save/load logic below are all driven off this list, nothing else
+// needs to change.
+const PERMISSION_CATEGORIES = [
+  { key: 'music', label: 'Music', desc: 'Commands like /play, /skip, queue controls, EQ, and radio.' },
+];
+
+let allPermissions = {};
+let permRolesByCategory = {};   // key -> [{id,name,color}]
+
+function renderPermCategories() {
+  const container = document.getElementById('perm-categories');
+  container.innerHTML = PERMISSION_CATEGORIES.map(cat => `
+    <div class="panel">
+      <div class="panel-head">${cat.label} <span style="font-size:10px;color:var(--sub);font-weight:400;text-transform:none;letter-spacing:0">this server only</span></div>
+      <div class="panel-body">
+        <div class="row">
+          <div><div class="row-label">Restrict who can use ${cat.label.toLowerCase()} commands</div><div class="row-sub">${cat.desc}</div></div>
+          <label class="tog"><input type="checkbox" id="perm-${cat.key}-on"><span class="slider"></span></label>
+        </div>
+        <div class="field" style="margin-top:15px;">
+          <label>Allowed Roles</label>
+          <select id="perm-${cat.key}-picker" class="fs" style="margin-bottom:7px;"><option value="">— pick a role —</option></select>
+          <div class="chips" id="perm-${cat.key}-chips"></div>
+          <div class="hint">Members with any of these roles (or Manage Server/Admin) can use ${cat.label.toLowerCase()} commands. If enabled with no roles picked, only admins can.</div>
+        </div>
+        <div class="actions">
+          <button class="btn btn-ghost" onclick="loadPermissions()">Reset</button>
+          <button class="btn btn-primary" onclick="savePermCategory('${cat.key}')">Save</button>
+        </div>
+      </div>
+    </div>`).join('');
+  PERMISSION_CATEGORIES.forEach(cat => buildPermRolePicker(cat.key));
+}
+
+function buildPermRolePicker(key) {
+  const sel = document.getElementById(`perm-${key}-picker`);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">— pick a role —</option>' +
+    allRoles.map(r => `<option value="${r.id}" data-c="${r.color}" data-n="${r.name}">${r.name}</option>`).join('');
+  sel.onchange = () => {
+    const o = sel.options[sel.selectedIndex];
+    if (!o.value) return;
+    addPermRole(key, { id: o.value, name: o.dataset.n, color: o.dataset.c });
+    sel.value = '';
+  };
+}
+function addPermRole(key, r) {
+  const list = permRolesByCategory[key] || (permRolesByCategory[key] = []);
+  if (list.find(x => x.id === r.id)) return;
+  list.push(r);
+  renderPermChips(key);
+}
+function removePermRole(key, id) {
+  permRolesByCategory[key] = (permRolesByCategory[key] || []).filter(r => r.id !== id);
+  renderPermChips(key);
+}
+function renderPermChips(key) {
+  const el = document.getElementById(`perm-${key}-chips`);
+  if (!el) return;
+  el.innerHTML = (permRolesByCategory[key] || []).map(r =>
+    `<div class="chip"><span class="chip-dot" style="background:${r.color}"></span><span>${r.name}</span><span class="chip-x" onclick="removePermRole('${key}','${r.id}')">×</span></div>`
+  ).join('');
+}
+async function loadPermissions() {
+  if (!currentGuild) return;
+  const data = await apiFetch(`/api/guild/${currentGuild}/permissions`);
+  allPermissions = data || {};
+  PERMISSION_CATEGORIES.forEach(cat => {
+    const cfg = allPermissions[cat.key] || { enabled: false, roles: [] };
+    const onEl = document.getElementById(`perm-${cat.key}-on`);
+    if (onEl) onEl.checked = !!cfg.enabled;
+    permRolesByCategory[cat.key] = (cfg.roles || []).map(rid => {
+      const r = allRoles.find(x => x.id === rid);
+      return r ? { id: rid, name: r.name, color: r.color } : { id: rid, name: rid, color: '#444' };
+    });
+    renderPermChips(cat.key);
+  });
+}
+async function savePermCategory(key) {
+  if (!currentGuild) return toast('select a server first', 'err');
+  const onEl = document.getElementById(`perm-${key}-on`);
+  allPermissions[key] = { enabled: onEl.checked, roles: (permRolesByCategory[key] || []).map(r => r.id) };
+  const ok = await apiPost(`/api/guild/${currentGuild}/permissions`, allPermissions);
   ok ? toast('saved') : toast('save failed', 'err');
 }
 
@@ -1200,6 +1297,7 @@ async function init() {
 
 document.getElementById('restart-modal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 
+renderPermCategories();
 init();
 </script>
 </body>
