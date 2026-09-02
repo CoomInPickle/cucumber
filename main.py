@@ -10,6 +10,7 @@ import logging.handlers
 intents = discord.Intents.default()
 intents.voice_states = True
 intents.message_content = True  # optional, for other commands
+intents.members = True  # required for on_member_join (autorole)
 
 client = commands.Bot(command_prefix=commands.when_mentioned, intents=intents, application_id=APPLICATION_ID)
 discord.utils.setup_logging(level=logging.INFO, root=False)
