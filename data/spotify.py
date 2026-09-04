@@ -181,8 +181,13 @@ async def _artist_tracks(artist_id: str) -> list[str]:
     """Spotify removed Get Artist's Top Tracks in the Feb 2026 API cut, so this
     pulls the artist's recent albums/singles and reads the tracklist off each
     one instead. Capped so a prolific artist doesn't dump hundreds of tracks
-    into the queue in one go."""
-    data = await _api_get(f"/artists/{artist_id}/albums", {"limit": 50, "include_groups": "album,single"})
+    into the queue in one go.
+
+    Client-credentials tokens have no user attached, so there's no market to
+    fall back on — Spotify now 400s instead of guessing, so it has to be
+    passed explicitly on every catalog read."""
+    data = await _api_get(f"/artists/{artist_id}/albums",
+                           {"limit": 50, "include_groups": "album,single", "market": "US"})
     if not data:
         return []
 
@@ -201,7 +206,7 @@ async def _artist_tracks(artist_id: str) -> list[str]:
 
     async def _tracks_for(album: dict) -> list[str]:
         async with sem:
-            data = await _api_get(f"/albums/{album['id']}/tracks", {"limit": 50})
+            data = await _api_get(f"/albums/{album['id']}/tracks", {"limit": 50, "market": "US"})
         if not data:
             return []
         return [q for q in (_track_query(t) for t in data.get("items", [])) if q]
