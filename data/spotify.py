@@ -37,6 +37,7 @@ API_BASE  = "https://api.spotify.com/v1"
 _TRACK_RE    = re.compile(r"open\.spotify\.com/(?:intl-\w+/)?track/([A-Za-z0-9]+)")
 _PLAYLIST_RE = re.compile(r"open\.spotify\.com/(?:intl-\w+/)?playlist/([A-Za-z0-9]+)")
 _ALBUM_RE    = re.compile(r"open\.spotify\.com/(?:intl-\w+/)?album/([A-Za-z0-9]+)")
+_ARTIST_RE   = re.compile(r"open\.spotify\.com/(?:intl-\w+/)?artist/([A-Za-z0-9]+)")
 _SHORT_RE    = re.compile(r"spotify\.link/")
 
 # Cached app access token — client-credentials tokens are shared across all
@@ -58,7 +59,10 @@ async def is_spotify_url(url: str) -> bool:
             url = await _resolve_short_link(url)
         except Exception:
             return False
-    return bool(_TRACK_RE.search(url) or _PLAYLIST_RE.search(url) or _ALBUM_RE.search(url))
+    return bool(
+        _TRACK_RE.search(url) or _PLAYLIST_RE.search(url)
+        or _ALBUM_RE.search(url) or _ARTIST_RE.search(url)
+    )
 
 
 async def _get_token() -> str | None:
@@ -168,6 +172,13 @@ def _track_query(track: dict | None) -> str | None:
     return f"{artist_str} - {name}" if artist_str else name
 
 
+async def _artist_top_tracks(artist_id: str) -> list[str]:
+    data = await _api_get(f"/artists/{artist_id}/top-tracks", {"market": "US"})
+    if not data:
+        return []
+    return [q for q in (_track_query(t) for t in data.get("tracks", [])) if q]
+
+
 async def resolve(url: str) -> list[str]:
     """
     Given a Spotify track/playlist/album URL, return a list of search query
@@ -184,6 +195,10 @@ async def resolve(url: str) -> list[str]:
     track_match    = _TRACK_RE.search(url)
     playlist_match = _PLAYLIST_RE.search(url)
     album_match    = _ALBUM_RE.search(url)
+    artist_match   = _ARTIST_RE.search(url)
+
+    if artist_match:
+        return await _artist_top_tracks(artist_match.group(1))
 
     if track_match:
         data  = await _api_get(f"/tracks/{track_match.group(1)}")
