@@ -20,6 +20,7 @@ If they're not set, is_spotify_url() / resolve() just quietly do nothing
 and Spotify links get treated as a normal search query instead.
 """
 
+import asyncio
 import base64
 import json
 import os
@@ -172,11 +173,47 @@ def _track_query(track: dict | None) -> str | None:
     return f"{artist_str} - {name}" if artist_str else name
 
 
-async def _artist_top_tracks(artist_id: str) -> list[str]:
-    data = await _api_get(f"/artists/{artist_id}/top-tracks", {"market": "US"})
+ARTIST_ALBUM_CAP = 8
+ARTIST_TRACK_CAP = 60
+
+
+async def _artist_tracks(artist_id: str) -> list[str]:
+    """Spotify removed Get Artist's Top Tracks in the Feb 2026 API cut, so this
+    pulls the artist's recent albums/singles and reads the tracklist off each
+    one instead. Capped so a prolific artist doesn't dump hundreds of tracks
+    into the queue in one go."""
+    data = await _api_get(f"/artists/{artist_id}/albums", {"limit": 50, "include_groups": "album,single"})
     if not data:
         return []
-    return [q for q in (_track_query(t) for t in data.get("tracks", [])) if q]
+
+    seen_titles = set()
+    albums = []
+    for album in data.get("items", []):
+        title = (album.get("name") or "").lower().split("(")[0].strip()
+        if not title or title in seen_titles:
+            continue
+        seen_titles.add(title)
+        albums.append(album)
+        if len(albums) >= ARTIST_ALBUM_CAP:
+            break
+
+    sem = asyncio.Semaphore(5)
+
+    async def _tracks_for(album: dict) -> list[str]:
+        async with sem:
+            data = await _api_get(f"/albums/{album['id']}/tracks", {"limit": 50})
+        if not data:
+            return []
+        return [q for q in (_track_query(t) for t in data.get("items", [])) if q]
+
+    results = await asyncio.gather(*(_tracks_for(a) for a in albums))
+
+    queries = []
+    for track_list in results:
+        queries.extend(track_list)
+        if len(queries) >= ARTIST_TRACK_CAP:
+            break
+    return queries[:ARTIST_TRACK_CAP]
 
 
 async def resolve(url: str) -> list[str]:
@@ -198,7 +235,7 @@ async def resolve(url: str) -> list[str]:
     artist_match   = _ARTIST_RE.search(url)
 
     if artist_match:
-        return await _artist_top_tracks(artist_match.group(1))
+        return await _artist_tracks(artist_match.group(1))
 
     if track_match:
         data  = await _api_get(f"/tracks/{track_match.group(1)}")
